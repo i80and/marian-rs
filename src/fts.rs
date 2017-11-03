@@ -465,6 +465,32 @@ impl FTSIndex {
             field.compute_length_weight();
         }
 
+        for (&doc_id, url) in &self.id_to_url {
+            let mut outgoing_neighbors_set = HashSet::new();
+            if let Some(links) = self.link_graph.get(url) {
+                for link in links {
+                    if let Some(descendent_id) = self.url_to_id.get(link) {
+                        outgoing_neighbors_set.insert(descendent_id);
+                    }
+                }
+            }
+
+            let mut outgoing_neighbors: Vec<_> = outgoing_neighbors_set.drain().cloned().collect();
+            self.outgoing_neighbors[doc_id as usize] = outgoing_neighbors.to_owned();
+
+            let mut incoming_neighbors_set = HashSet::new();
+            if let Some(urls) = self.inverse_link_graph.get(url) {
+                for ancestor_url in urls {
+                    if let Some(ancestor_id) = self.url_to_id.get(ancestor_url) {
+                        incoming_neighbors_set.insert(ancestor_id);
+                    }
+                }
+            }
+
+            let incoming_neighbors: Vec<_> = incoming_neighbors_set.drain().cloned().collect();
+            self.incoming_neighbors[doc_id as usize] = incoming_neighbors.to_owned();
+        }
+
         self.dirty = false;
     }
 
@@ -476,63 +502,36 @@ impl FTSIndex {
 
         let outgoing_neighbors = match self.outgoing_neighbors.get(doc_id as usize) {
             Some(v) => v.to_owned(),
-            None => {
-                let mut outgoing_neighbors_set = HashSet::new();
-                if let Some(links) = self.link_graph.get(url) {
-                    for link in links {
-                        if let Some(descendent_id) = self.url_to_id.get(link) {
-                            outgoing_neighbors_set.insert(descendent_id);
-                        }
-                    }
-                }
-
-                let mut outgoing_neighbors: Vec<_> =
-                    outgoing_neighbors_set.drain().cloned().collect();
-                // self.outgoing_neighbors[doc_id as usize] = outgoing_neighbors.to_owned();
-                outgoing_neighbors
-            }
+            None => return,
         };
 
         let incoming_neighbors = match self.incoming_neighbors.get(doc_id as usize) {
             Some(v) => v.to_owned(),
-            None => {
-                let mut incoming_neighbors_set = HashSet::new();
-                if let Some(urls) = self.inverse_link_graph.get(url) {
-                    for ancestor_url in urls {
-                        if let Some(ancestor_id) = self.url_to_id.get(ancestor_url) {
-                            incoming_neighbors_set.insert(ancestor_id);
-                        }
-                    }
-                }
-
-                let incoming_neighbors: Vec<_> = incoming_neighbors_set.drain().cloned().collect();
-                // self.incoming_neighbors[doc_id as usize] = incoming_neighbors.to_owned();
-                incoming_neighbors
-            }
+            None => return,
         };
 
-        for neighbor_id in &incoming_neighbors {
+        for &neighbor_id in &incoming_neighbors {
             let new_match = base_set
-                .entry(*neighbor_id)
-                .or_insert_with(|| SearchMatch::new(*neighbor_id));
+                .entry(neighbor_id)
+                .or_insert_with(|| SearchMatch::new(neighbor_id));
             // search_match.incoming_neighbors.push(new_match);
         }
 
-        for neighbor_id in &outgoing_neighbors {
+        for &neighbor_id in &outgoing_neighbors {
             let new_match = base_set
-                .entry(*neighbor_id)
-                .or_insert_with(|| SearchMatch::new(*neighbor_id));
+                .entry(neighbor_id)
+                .or_insert_with(|| SearchMatch::new(neighbor_id));
             // search_match.outgoing_neighbors.push(new_match);
         }
     }
 
-    fn collect_matches_from_trie<'a, I>(&self, terms: I) -> Vec<(DocID, Vec<String>)>
+    fn collect_matches_from_trie<'a, I>(&self, terms: I) -> Vec<(DocID, Vec<&str>)>
     where
         I: iter::Iterator<Item = &'a String>,
     {
         let mut result_set = vec![];
         for term in terms {
-            for (doc_id, terms) in self.trie.search(term, true) {
+            for (doc_id, terms) in self.trie.search(term) {
                 result_set.push((doc_id, terms.to_owned()));
             }
         }
@@ -569,7 +568,7 @@ impl FTSIndex {
                 continue;
             }
 
-            for term in terms {
+            for &term in terms {
                 let term_entry = &self.terms[term];
 
                 let mut term_relevancy_score: f32 = 0.0;
@@ -650,8 +649,8 @@ impl FTSIndex {
             base_set.insert(search_match._id, search_match);
         }
 
-        for mut doc_id in &root_ids {
-            self.get_neighbors(&mut base_set, *doc_id);
+        for &doc_id in &root_ids {
+            self.get_neighbors(&mut base_set, doc_id);
         }
 
         let base_set: Vec<_> = base_set.drain().map(|(k, v)| v).collect();

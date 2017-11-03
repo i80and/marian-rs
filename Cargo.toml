@@ -6,6 +6,7 @@ authors = ["Andrew Aldridge <i80and@foxquill.com>"]
 [dependencies]
 hyper = "0.11"
 lazy_static = "0.2.9"
+qp-trie = "0.7"
 regex = "0.2"
 
 [profile.release]
