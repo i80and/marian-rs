@@ -65,14 +65,12 @@ impl Query {
             let match_str = m.as_str();
 
             match phrase {
-                Some(ref mut s) => {
-                    if match_str == "\"" {
-                        end_phrase = true;
-                    } else {
-                        query.add_term(match_str.to_owned());
-                        s.push_str(match_str);
-                        s.push(' ');
-                    }
+                Some(ref mut s) => if match_str == "\"" {
+                    end_phrase = true;
+                } else {
+                    query.add_term(match_str.to_owned());
+                    s.push_str(match_str);
+                    s.push(' ');
                 },
                 None => {
                     if match_str == "\"" {
@@ -129,6 +127,12 @@ impl Query {
             phrase.pop();
         }
 
+        let parts: Vec<_> = tokenize(&phrase, false)
+            .iter()
+            .filter(|term| !is_stop_word(term))
+            .map(|term| stem(term))
+            .collect();
+        self.stemmed_phrases.push(parts);
         self.phrases.push(phrase);
     }
 
@@ -238,18 +242,18 @@ mod tests {
         assert_eq!(query.check_phrases(&token_positions), true);
     }
 
-    // #[test]
-    // fn test_check_phrases_negative() {
-    //     // it should refuse phrases without adjacent words
-    //     let query = Query::new("\"Quoth the raven\"");
-    //     let s1 = "quoth".to_owned();
-    //     let s2 = "raven".to_owned();
-    //     let v1 = vec![0, 3];
-    //     let v2 = vec![2, 5];
-    //     let token_positions: HashMap<&String, &[u32]> =
-    //         vec![(&s1, v1.as_slice()), (&s2, v2.as_slice())]
-    //             .into_iter()
-    //             .collect();
-    //     assert_eq!(query.check_phrases(&token_positions), false);
-    // }
+    #[test]
+    fn test_check_phrases_negative() {
+        // it should refuse phrases without adjacent words
+        let query = Query::new("\"Quoth the raven\"");
+        let s1 = "quoth".to_owned();
+        let s2 = "raven".to_owned();
+        let v1 = vec![0, 3];
+        let v2 = vec![2, 5];
+        let token_positions: HashMap<&String, &[u32]> =
+            vec![(&s1, v1.as_slice()), (&s2, v2.as_slice())]
+                .into_iter()
+                .collect();
+        assert_eq!(query.check_phrases(&token_positions), false);
+    }
 }
