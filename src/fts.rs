@@ -2,23 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::{cmp, iter};
 use query::Query;
 use trie::Trie;
+use stemmer::{is_stop_word, stem, tokenize};
 
 const MAX_MATCHES: usize = 150;
 
 pub type DocID = u32;
 type TokenID = u32;
-
-fn is_stop_word(word: &str) -> bool {
-    false
-}
-
-fn stem(word: &str) -> String {
-    word.to_owned()
-}
-
-fn tokenize(text: &str, prefix: bool) -> Vec<String> {
-    vec![]
-}
 
 /// Normalize URLs by chopping off trailing index.html components.
 /// standard deviation of relevancy. Return that minimum relevancy score.
@@ -55,7 +44,7 @@ fn hits(
         // Update all authority scores
         for mut m in &mut matches {
             m.authority_score = 0.0;
-            for incoming_match in &m.incoming_neighbors {
+            for incoming_match_id in &m.incoming_neighbors {
                 // m.authority_score += incoming_match.hub_score;
             }
             authority_norm += m.authority_score.powf(2.0);
@@ -200,15 +189,13 @@ impl TermEntry {
 struct DocumentEntry {
     len: u32,
     term_frequencies: HashMap<String, u32>,
-    weight: f32,
 }
 
 impl DocumentEntry {
-    fn new(number_of_tokens: u32, term_frequencies: HashMap<String, u32>, weight: f32) -> Self {
+    fn new(number_of_tokens: u32, term_frequencies: HashMap<String, u32>) -> Self {
         DocumentEntry {
             len: number_of_tokens,
             term_frequencies,
-            weight,
         }
     }
 }
@@ -446,7 +433,7 @@ impl FTSIndex {
             field.total_tokens += number_of_tokens;
             field.documents.insert(
                 document._id,
-                DocumentEntry::new(number_of_tokens, term_frequencies, document.weight),
+                DocumentEntry::new(number_of_tokens, term_frequencies),
             );
         }
 
@@ -495,11 +482,6 @@ impl FTSIndex {
     }
 
     fn get_neighbors(&self, base_set: &mut HashMap<DocID, SearchMatch>, doc_id: DocID) {
-        let url = match self.id_to_url.get(&doc_id) {
-            Some(url) => url,
-            None => return,
-        };
-
         let outgoing_neighbors = match self.outgoing_neighbors.get(doc_id as usize) {
             Some(v) => v.to_owned(),
             None => return,
@@ -511,17 +493,19 @@ impl FTSIndex {
         };
 
         for &neighbor_id in &incoming_neighbors {
-            let new_match = base_set
+            base_set
                 .entry(neighbor_id)
                 .or_insert_with(|| SearchMatch::new(neighbor_id));
-            // search_match.incoming_neighbors.push(new_match);
+            let mut origin_match = base_set.get_mut(&doc_id).unwrap();
+            origin_match.incoming_neighbors.push(neighbor_id);
         }
 
         for &neighbor_id in &outgoing_neighbors {
-            let new_match = base_set
+            base_set
                 .entry(neighbor_id)
                 .or_insert_with(|| SearchMatch::new(neighbor_id));
-            // search_match.outgoing_neighbors.push(new_match);
+            let mut origin_match = base_set.get_mut(&doc_id).unwrap();
+            origin_match.outgoing_neighbors.push(neighbor_id);
         }
     }
 
@@ -653,7 +637,7 @@ impl FTSIndex {
             self.get_neighbors(&mut base_set, doc_id);
         }
 
-        let base_set: Vec<_> = base_set.drain().map(|(k, v)| v).collect();
+        let base_set: Vec<_> = base_set.drain().map(|(_, v)| v).collect();
 
         // Run HITS to re-sort our results based on authority
         hits(base_set, 0.00001, 200)

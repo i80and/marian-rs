@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 mod fts;
 mod query;
+mod stemmer;
 mod trie;
 
 fn main() {
@@ -31,5 +32,5 @@ fn main() {
 
     fts.finish();
 
-    fts.search(query::Query::new(), true);
+    fts.search(query::Query::new(""), true);
 }
