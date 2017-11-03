@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use regex::Regex;
+use porter2::StemmerContext;
 
 /* Derived from the following: */
 /* !
@@ -149,7 +150,8 @@ pub fn stem(word: &str) -> String {
         return word.to_owned();
     }
 
-    word.to_owned()
+    let mut word = word.to_owned();
+    StemmerContext::new(&mut word).get().to_owned()
 }
 
 pub fn tokenize(text: &str, fuzzy: bool) -> Vec<String> {

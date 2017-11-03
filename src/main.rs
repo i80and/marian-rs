@@ -7,6 +7,7 @@ extern crate regex;
 use std::collections::HashMap;
 
 mod fts;
+mod porter2;
 mod query;
 mod stemmer;
 mod trie;

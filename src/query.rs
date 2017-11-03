@@ -211,7 +211,13 @@ mod tests {
                 "officially supported".to_owned(),
             ]
         );
-        // assert.deepStrictEqual(query.stemmedPhrases, [['introduc'], ['offici', 'support']])
+        assert_eq!(
+            query.stemmed_phrases,
+            vec![
+                vec!["introduc".to_owned()],
+                vec!["offici".to_owned(), "support".to_owned()],
+            ]
+        );
     }
 
     #[test]
