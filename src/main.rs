@@ -1,12 +1,10 @@
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
-extern crate qp_trie;
-extern crate regex;
-
-#[cfg(test)]
 #[macro_use]
 extern crate maplit;
+extern crate qp_trie;
+extern crate regex;
 
 use std::collections::HashMap;
 

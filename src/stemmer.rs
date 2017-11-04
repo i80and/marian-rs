@@ -14,7 +14,7 @@ lazy_static! {
     static ref PAT_BAD_CHARS: Regex = Regex::new(r#"(?:^\.)|(?:\.$)"#)
         .expect("Failed to compile bad char regex");
 
-    static ref STOP_WORDS: HashSet<&'static str> = vec!["a",
+    static ref STOP_WORDS: HashSet<&'static str> = hashset!["a",
     "able",
     "about",
     "across",
@@ -128,11 +128,11 @@ lazy_static! {
     "yet",
     "you",
     "your",
-    "e.g."].into_iter().collect();
+    "e.g."];
 
-    static ref ATOMIC_PHRASE_MAP: HashMap<String, String> = vec![
-        ("ops".to_owned(), "manager".to_owned()),
-        ("cloud".to_owned(), "manager".to_owned()),
+    static ref ATOMIC_PHRASE_MAP: HashMap<&'static str, &'static str> = hashmap![
+        "ops" => "manager",
+        "cloud" => "manager",
     ].into_iter().collect();
 
     static ref ATOMIC_PHRASES: HashSet<String> = ATOMIC_PHRASE_MAP
@@ -168,9 +168,9 @@ pub fn tokenize(text: &str, fuzzy: bool) -> Vec<String> {
             continue;
         }
 
-        let token = &components[i];
+        let token: &str = &components[i];
         if let Some(next_token) = components.get(i + 1) {
-            let atomic_phrase_option = ATOMIC_PHRASE_MAP.get(token);
+            let atomic_phrase_option: Option<&str> = ATOMIC_PHRASE_MAP.get(token).cloned();
             if atomic_phrase_option == Some(next_token) {
                 tokens.push(format!("{} {}", token, ATOMIC_PHRASE_MAP[token]));
                 skip = true;
