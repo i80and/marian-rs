@@ -1,0 +1,11 @@
+language: rust
+sudo: false
+dist: trusty
+
+matrix:
+    include:
+        - rust: nightly
+
+notifications:
+    email: false
+
