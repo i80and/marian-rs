@@ -9,5 +9,8 @@ lazy_static = "0.2.9"
 qp-trie = "0.7"
 regex = "0.2"
 
+[dev-dependencies]
+maplit = "1.0"
+
 [profile.release]
 lto = true

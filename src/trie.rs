@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use qp_trie;
 use fts::DocID;
 
 pub struct Trie {
-    trie: qp_trie::Trie<qp_trie::wrapper::BString, DocID>,
+    trie: qp_trie::Trie<qp_trie::wrapper::BString, HashSet<DocID>>,
 }
 
 impl Trie {
@@ -14,19 +14,68 @@ impl Trie {
     }
 
     pub fn insert(&mut self, token: &str, id: DocID) {
-        self.trie.insert_str(token, id);
+        let key = qp_trie::wrapper::BString::from(token);
+        self.trie.entry(key).or_insert_with(HashSet::new).insert(id);
     }
 
     pub fn search(&self, term: &str) -> HashMap<DocID, Vec<&str>> {
         let mut result = HashMap::new();
 
-        for (k, &doc_id) in self.trie.iter_prefix_str(term) {
-            result
-                .entry(doc_id)
-                .or_insert_with(Vec::new)
-                .push(k.as_str());
+        for (k, doc_ids) in self.trie.iter_prefix_str(term) {
+            for &doc_id in doc_ids {
+                result
+                    .entry(doc_id)
+                    .or_insert_with(Vec::new)
+                    .push(k.as_str());
+            }
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_idempotency() {
+        // Should be idempotent
+        let mut trie = Trie::new();
+
+        trie.insert("foobar", 0);
+        trie.insert("foobar", 0);
+
+        assert_eq!(trie.search("foobar"), hashmap![0 => vec!["foobar"]]);
+    }
+
+    #[test]
+    fn test_additive() {
+        let mut trie = Trie::new();
+        trie.insert("foobar", 0);
+        trie.insert("foobar", 1);
+
+        assert_eq!(
+            trie.search("foobar"),
+            hashmap![
+            0 => vec!["foobar"],
+            1 => vec!["foobar"],
+        ]
+        );
+    }
+
+    #[test]
+    fn test_prefix() {
+        let mut trie = Trie::new();
+        trie.insert("foobar", 0);
+        trie.insert("foobar", 1);
+        trie.insert("foobaz", 0);
+
+        assert_eq!(
+            trie.search("foo"),
+            hashmap![
+                0 => vec!["foobar", "foobaz"],
+                1 => vec!["foobar"]]
+        );
     }
 }

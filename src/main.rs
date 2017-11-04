@@ -4,6 +4,10 @@ extern crate lazy_static;
 extern crate qp_trie;
 extern crate regex;
 
+#[cfg(test)]
+#[macro_use]
+extern crate maplit;
+
 use std::collections::HashMap;
 
 mod fts;

@@ -152,10 +152,7 @@ mod tests {
     #[test]
     fn test_single_term() {
         let query = Query::new("foo");
-        assert_eq!(
-            query.terms,
-            vec!["foo".to_owned()].into_iter().collect::<HashSet<_>>()
-        );
+        assert_eq!(query.terms, hashset!["foo".to_owned()]);
         assert_eq!(query.phrases, Vec::<String>::new());
     }
 
@@ -163,12 +160,7 @@ mod tests {
     fn test_whitespace() {
         // it should delimit terms with any standard whitespace characters
         let query = Query::new("foo   \t  bar");
-        assert_eq!(
-            query.terms,
-            vec!["foo".to_owned(), "bar".to_owned()]
-                .into_iter()
-                .collect::<HashSet<_>>()
-        );
+        assert_eq!(query.terms, hashset!["foo".to_owned(), "bar".to_owned()]);
         assert_eq!(query.phrases, Vec::<String>::new());
     }
 
@@ -177,14 +169,13 @@ mod tests {
         let query = Query::new("foo \"one phrase\" bar \"second phrase\"");
         assert_eq!(
             query.terms,
-            vec![
+            hashset![
                 "foo".to_owned(),
                 "bar".to_owned(),
                 "one".to_owned(),
                 "phrase".to_owned(),
                 "second".to_owned(),
-            ].into_iter()
-                .collect::<HashSet<_>>()
+            ]
         );
         assert_eq!(
             query.phrases,
@@ -197,12 +188,11 @@ mod tests {
         let query = Query::new("\"introduce the\" \"officially supported\"");
         assert_eq!(
             query.terms,
-            vec![
+            hashset![
                 "introduce".to_owned(),
                 "officially".to_owned(),
                 "supported".to_owned(),
-            ].into_iter()
-                .collect::<HashSet<_>>()
+            ]
         );
         assert_eq!(
             query.phrases,
@@ -226,9 +216,7 @@ mod tests {
         let query = Query::new("\"officially supported");
         assert_eq!(
             query.terms,
-            vec!["officially".to_owned(), "supported".to_owned()]
-                .into_iter()
-                .collect::<HashSet<_>>()
+            hashset!["officially".to_owned(), "supported".to_owned()]
         );
         assert_eq!(query.phrases, vec!["officially supported".to_owned()]);
     }
@@ -241,10 +229,7 @@ mod tests {
         let s2 = "raven".to_owned();
         let v1 = vec![0, 5];
         let v2 = vec![8, 1];
-        let token_positions: HashMap<&String, &[u32]> =
-            vec![(&s1, v1.as_slice()), (&s2, v2.as_slice())]
-                .into_iter()
-                .collect();
+        let token_positions = hashmap![&s1 => v1.as_slice(), &s2 => v2.as_slice()];
         assert_eq!(query.check_phrases(&token_positions), true);
     }
 
@@ -256,10 +241,8 @@ mod tests {
         let s2 = "raven".to_owned();
         let v1 = vec![0, 3];
         let v2 = vec![2, 5];
-        let token_positions: HashMap<&String, &[u32]> =
-            vec![(&s1, v1.as_slice()), (&s2, v2.as_slice())]
-                .into_iter()
-                .collect();
+
+        let token_positions = hashmap![&s1 => v1.as_slice(), &s2 => v2.as_slice()];
         assert_eq!(query.check_phrases(&token_positions), false);
     }
 }
