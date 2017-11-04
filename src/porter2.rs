@@ -1,3 +1,5 @@
+#![allow(unknown_lints, clippy)]
+
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut};
 use std::cmp;
@@ -69,8 +71,8 @@ struct Stemmer {
     a_9: Vec<Among>,
     a_10: Vec<Among>,
     g_v: Vec<i32>,
-    g_v_WXY: Vec<i32>,
-    g_valid_LI: Vec<i32>,
+    g_v_wxy: Vec<i32>,
+    g_valid_li: Vec<i32>,
 }
 
 impl Stemmer {
@@ -220,8 +222,8 @@ impl Stemmer {
             ],
 
             g_v: vec![17, 65, 16, 1],
-            g_v_WXY: vec![1, 17, 65, 208, 1],
-            g_valid_LI: vec![55, 141, 2],
+            g_v_wxy: vec![1, 17, 65, 208, 1],
+            g_valid_li: vec![55, 141, 2],
         }
     }
 }
@@ -232,7 +234,7 @@ lazy_static! {
 
 pub struct StemmerContext<'a> {
     stemmer: &'a Stemmer,
-    B_Y_found: bool,
+    b_y_found: bool,
     i_p2: i32,
     i_p1: i32,
 
@@ -249,7 +251,7 @@ impl<'a> StemmerContext<'a> {
         let len = value.len() as i32;
         let mut ctx = Self {
             stemmer: &STEMMER,
-            B_Y_found: false,
+            b_y_found: false,
             i_p2: 0,
             i_p1: 0,
 
@@ -275,13 +277,13 @@ impl<'a> StemmerContext<'a> {
     fn stem(&mut self) -> bool {
         // (, line 208
         // or, line 210
-        let mut lab0 = true;
-        'lab0: while lab0 {
-            lab0 = false;
+        let mut _lab0 = true;
+        'lab0: while _lab0 {
+            _lab0 = false;
             let v_1 = self.cursor;
-            let mut lab1 = true;
-            'lab1: while lab1 {
-                lab1 = false;
+            let mut _lab1 = true;
+            'lab1: while _lab1 {
+                _lab1 = false;
                 // call exception1, line 210
                 if !self.r_exception1() {
                     break 'lab1;
@@ -289,15 +291,15 @@ impl<'a> StemmerContext<'a> {
                 break 'lab0;
             }
             self.cursor = v_1;
-            let mut lab2 = true;
-            'lab2: while lab2 {
-                lab2 = false;
+            let mut _lab2 = true;
+            'lab2: while _lab2 {
+                _lab2 = false;
                 // not, line 211
                 {
                     let v_2 = self.cursor;
-                    let mut lab3 = true;
-                    'lab3: while lab3 {
-                        lab3 = false;
+                    let mut _lab3 = true;
+                    'lab3: while _lab3 {
+                        _lab3 = false;
                         // hop, line 211
                         {
                             let c = self.cursor + 3;
@@ -316,9 +318,9 @@ impl<'a> StemmerContext<'a> {
             // (, line 211
             // do, line 212
             let v_3 = self.cursor;
-            let mut lab4 = true;
-            'lab4: while lab4 {
-                lab4 = false;
+            let mut _lab4 = true;
+            'lab4: while _lab4 {
+                _lab4 = false;
                 // call prelude, line 212
                 if !self.r_prelude() {
                     break 'lab4;
@@ -327,9 +329,9 @@ impl<'a> StemmerContext<'a> {
             self.cursor = v_3;
             // do, line 213
             let v_4 = self.cursor;
-            let mut lab5 = true;
-            'lab5: while lab5 {
-                lab5 = false;
+            let mut _lab5 = true;
+            'lab5: while _lab5 {
+                _lab5 = false;
                 // call mark_regions, line 213
                 if !self.r_mark_regions() {
                     break 'lab5;
@@ -342,9 +344,9 @@ impl<'a> StemmerContext<'a> {
             // (, line 214
             // do, line 216
             let v_5 = self.limit - self.cursor;
-            let mut lab6 = true;
-            'lab6: while lab6 {
-                lab6 = false;
+            let mut _lab6 = true;
+            'lab6: while _lab6 {
+                _lab6 = false;
                 // call step_1a, line 216
                 if !self.r_step_1a() {
                     break 'lab6;
@@ -352,13 +354,13 @@ impl<'a> StemmerContext<'a> {
             }
             self.cursor = self.limit - v_5;
             // or, line 218
-            let mut lab7 = true;
-            'lab7: while lab7 {
-                lab7 = false;
+            let mut _lab7 = true;
+            'lab7: while _lab7 {
+                _lab7 = false;
                 let v_6 = self.limit - self.cursor;
-                let mut lab8 = true;
-                'lab8: while lab8 {
-                    lab8 = false;
+                let mut _lab8 = true;
+                'lab8: while _lab8 {
+                    _lab8 = false;
                     // call exception2, line 218
                     if !self.r_exception2() {
                         break 'lab8;
@@ -369,9 +371,9 @@ impl<'a> StemmerContext<'a> {
                 // (, line 218
                 // do, line 220
                 let v_7 = self.limit - self.cursor;
-                let mut lab9 = true;
-                'lab9: while lab9 {
-                    lab9 = false;
+                let mut _lab9 = true;
+                'lab9: while _lab9 {
+                    _lab9 = false;
                     // call step_1b, line 220
                     if !self.r_step_1b() {
                         break 'lab9;
@@ -380,9 +382,9 @@ impl<'a> StemmerContext<'a> {
                 self.cursor = self.limit - v_7;
                 // do, line 221
                 let v_8 = self.limit - self.cursor;
-                let mut lab10 = true;
-                'lab10: while lab10 {
-                    lab10 = false;
+                let mut _lab10 = true;
+                'lab10: while _lab10 {
+                    _lab10 = false;
                     // call step_1c, line 221
                     if !self.r_step_1c() {
                         break 'lab10;
@@ -391,9 +393,9 @@ impl<'a> StemmerContext<'a> {
                 self.cursor = self.limit - v_8;
                 // do, line 223
                 let v_9 = self.limit - self.cursor;
-                let mut lab11 = true;
-                'lab11: while lab11 {
-                    lab11 = false;
+                let mut _lab11 = true;
+                'lab11: while _lab11 {
+                    _lab11 = false;
                     // call step_2, line 223
                     if !self.r_step_2() {
                         break 'lab11;
@@ -402,9 +404,9 @@ impl<'a> StemmerContext<'a> {
                 self.cursor = self.limit - v_9;
                 // do, line 224
                 let v_10 = self.limit - self.cursor;
-                let mut lab12 = true;
-                'lab12: while lab12 {
-                    lab12 = false;
+                let mut _lab12 = true;
+                'lab12: while _lab12 {
+                    _lab12 = false;
                     // call step_3, line 224
                     if !self.r_step_3() {
                         break 'lab12;
@@ -413,9 +415,9 @@ impl<'a> StemmerContext<'a> {
                 self.cursor = self.limit - v_10;
                 // do, line 225
                 let v_11 = self.limit - self.cursor;
-                let mut lab13 = true;
-                'lab13: while lab13 {
-                    lab13 = false;
+                let mut _lab13 = true;
+                'lab13: while _lab13 {
+                    _lab13 = false;
                     // call step_4, line 225
                     if !self.r_step_4() {
                         break 'lab13;
@@ -424,9 +426,9 @@ impl<'a> StemmerContext<'a> {
                 self.cursor = self.limit - v_11;
                 // do, line 227
                 let v_12 = self.limit - self.cursor;
-                let mut lab14 = true;
-                'lab14: while lab14 {
-                    lab14 = false;
+                let mut _lab14 = true;
+                'lab14: while _lab14 {
+                    _lab14 = false;
                     // call step_5, line 227
                     if !self.r_step_5() {
                         break 'lab14;
@@ -437,9 +439,9 @@ impl<'a> StemmerContext<'a> {
             self.cursor = self.limit_backward;
             // do, line 230
             let v_13 = self.cursor;
-            let mut lab15 = true;
-            'lab15: while lab15 {
-                lab15 = false;
+            let mut _lab15 = true;
+            'lab15: while _lab15 {
+                _lab15 = false;
                 // call postlude, line 230
                 if !self.r_postlude() {
                     break 'lab15;
@@ -457,18 +459,18 @@ impl<'a> StemmerContext<'a> {
         self.i_p2 = self.limit as i32;
         // do, line 35
         let v_1 = self.cursor;
-        let mut lab0 = true;
-        'lab0: while lab0 {
-            lab0 = false;
+        let mut _lab0 = true;
+        'lab0: while _lab0 {
+            _lab0 = false;
             // (, line 35
             // or, line 41
-            let mut lab1 = true;
-            'lab1: while lab1 {
-                lab1 = false;
+            let mut _lab1 = true;
+            'lab1: while _lab1 {
+                _lab1 = false;
                 let v_2 = self.cursor;
-                let mut lab2 = true;
-                'lab2: while lab2 {
-                    lab2 = false;
+                let mut _lab2 = true;
+                'lab2: while _lab2 {
+                    _lab2 = false;
                     // among, line 36
                     if self.find_among(&self.stemmer.a_0) == 0 {
                         break 'lab2;
@@ -479,9 +481,9 @@ impl<'a> StemmerContext<'a> {
                 // (, line 41
                 // gopast, line 41
                 'golab3: loop {
-                    let mut lab4 = true;
-                    'lab4: while lab4 {
-                        lab4 = false;
+                    let mut _lab4 = true;
+                    'lab4: while _lab4 {
+                        _lab4 = false;
                         if !self.in_grouping(&self.stemmer.g_v, 97, 121) {
                             break 'lab4;
                         }
@@ -494,9 +496,9 @@ impl<'a> StemmerContext<'a> {
                 }
                 // gopast, line 41
                 'golab5: loop {
-                    let mut lab6 = true;
-                    'lab6: while lab6 {
-                        lab6 = false;
+                    let mut _lab6 = true;
+                    'lab6: while _lab6 {
+                        _lab6 = false;
                         if !self.out_grouping(&self.stemmer.g_v, 97, 121) {
                             break 'lab6;
                         }
@@ -512,9 +514,9 @@ impl<'a> StemmerContext<'a> {
             self.i_p1 = self.cursor as i32;
             // gopast, line 43
             'golab7: loop {
-                let mut lab8 = true;
-                'lab8: while lab8 {
-                    lab8 = false;
+                let mut _lab8 = true;
+                'lab8: while _lab8 {
+                    _lab8 = false;
                     if !self.in_grouping(&self.stemmer.g_v, 97, 121) {
                         break 'lab8;
                     }
@@ -527,9 +529,9 @@ impl<'a> StemmerContext<'a> {
             }
             // gopast, line 43
             'golab9: loop {
-                let mut lab10 = true;
-                'lab10: while lab10 {
-                    lab10 = false;
+                let mut _lab10 = true;
+                'lab10: while _lab10 {
+                    _lab10 = false;
                     if !self.out_grouping(&self.stemmer.g_v, 97, 121) {
                         break 'lab10;
                     }
@@ -550,15 +552,15 @@ impl<'a> StemmerContext<'a> {
     fn r_shortv(&mut self) -> bool {
         // (, line 49
         // or, line 51
-        let mut lab0 = true;
-        'lab0: while lab0 {
-            lab0 = false;
+        let mut _lab0 = true;
+        'lab0: while _lab0 {
+            _lab0 = false;
             let v_1 = self.limit - self.cursor;
-            let mut lab1 = true;
-            'lab1: while lab1 {
-                lab1 = false;
+            let mut _lab1 = true;
+            'lab1: while _lab1 {
+                _lab1 = false;
                 // (, line 50
-                if !self.out_grouping_b(&self.stemmer.g_v_WXY, 89, 121) {
+                if !self.out_grouping_b(&self.stemmer.g_v_wxy, 89, 121) {
                     break 'lab1;
                 }
                 if !self.in_grouping_b(&self.stemmer.g_v, 97, 121) {
@@ -604,12 +606,12 @@ impl<'a> StemmerContext<'a> {
     fn r_prelude(&mut self) -> bool {
         // (, line 25
         // unset Y_found, line 26
-        self.B_Y_found = false;
+        self.b_y_found = false;
         // do, line 27
         let v_1 = self.cursor;
-        let mut lab0 = true;
-        while lab0 {
-            lab0 = false;
+        let mut _lab0 = true;
+        while _lab0 {
+            _lab0 = false;
             // (, line 27
             // [, line 27
             self.bra = self.cursor;
@@ -627,9 +629,9 @@ impl<'a> StemmerContext<'a> {
         self.cursor = v_1;
         // do, line 28
         let v_2 = self.cursor;
-        let mut lab1 = true;
-        while lab1 {
-            lab1 = false;
+        let mut _lab1 = true;
+        while _lab1 {
+            _lab1 = false;
             // (, line 28
             // [, line 28
             self.bra = self.cursor;
@@ -644,27 +646,27 @@ impl<'a> StemmerContext<'a> {
                 return false;
             }
             // set Y_found, line 28
-            self.B_Y_found = true;
+            self.b_y_found = true;
         }
         self.cursor = v_2;
         // do, line 29
         let v_3 = self.cursor;
-        let mut lab2 = true;
-        while lab2 {
-            lab2 = false;
+        let mut _lab2 = true;
+        while _lab2 {
+            _lab2 = false;
             // repeat, line 29
             'replab3: loop {
                 let v_4 = self.cursor;
-                let mut lab4 = true;
-                'lab4: while lab4 {
-                    lab4 = false;
+                let mut _lab4 = true;
+                'lab4: while _lab4 {
+                    _lab4 = false;
                     // (, line 29
                     // goto, line 29
                     'golab5: loop {
                         let v_5 = self.cursor;
-                        let mut lab6 = true;
-                        'lab6: while lab6 {
-                            lab6 = false;
+                        let mut _lab6 = true;
+                        'lab6: while _lab6 {
+                            _lab6 = false;
                             // (, line 29
                             if !(self.in_grouping(&self.stemmer.g_v, 97, 121)) {
                                 break 'lab6;
@@ -691,7 +693,7 @@ impl<'a> StemmerContext<'a> {
                         return false;
                     }
                     // set Y_found, line 29
-                    self.B_Y_found = true;
+                    self.b_y_found = true;
                     continue 'replab3;
                 }
                 self.cursor = v_4;
@@ -706,9 +708,9 @@ impl<'a> StemmerContext<'a> {
         // (, line 58
         // try, line 59
         let v_1 = self.limit - self.cursor;
-        let mut lab0 = true;
-        'lab0: while lab0 {
-            lab0 = false;
+        let mut _lab0 = true;
+        'lab0: while _lab0 {
+            _lab0 = false;
             // (, line 59
             // [, line 60
             self.ket = self.cursor;
@@ -756,13 +758,13 @@ impl<'a> StemmerContext<'a> {
             2 => {
                 // (, line 68
                 // or, line 68
-                let mut lab1 = true;
-                'lab1: while lab1 {
-                    lab1 = false;
+                let mut _lab1 = true;
+                'lab1: while _lab1 {
+                    _lab1 = false;
                     let v_2 = self.limit - self.cursor;
-                    let mut lab2 = true;
-                    'lab2: while lab2 {
-                        lab2 = false;
+                    let mut _lab2 = true;
+                    'lab2: while _lab2 {
+                        _lab2 = false;
                         // (, line 68
                         // hop, line 68
                         {
@@ -794,9 +796,9 @@ impl<'a> StemmerContext<'a> {
                 self.cursor -= 1;
                 // gopast, line 69
                 'golab3: loop {
-                    let mut lab4 = true;
-                    'lab4: while lab4 {
-                        lab4 = false;
+                    let mut _lab4 = true;
+                    'lab4: while _lab4 {
+                        _lab4 = false;
                         if !self.in_grouping_b(&self.stemmer.g_v, 97, 121) {
                             break 'lab4;
                         }
@@ -847,9 +849,9 @@ impl<'a> StemmerContext<'a> {
                 let v_1 = self.limit - self.cursor;
                 // gopast, line 80
                 'golab0: loop {
-                    let mut lab1 = true;
-                    'lab1: while lab1 {
-                        lab1 = false;
+                    let mut _lab1 = true;
+                    'lab1: while _lab1 {
+                        _lab1 = false;
                         if !self.in_grouping_b(&self.stemmer.g_v, 97, 121) {
                             break 'lab1;
                         }
@@ -933,13 +935,13 @@ impl<'a> StemmerContext<'a> {
         // [, line 94
         self.ket = self.cursor;
         // or, line 94
-        let mut lab0 = true;
-        'lab0: while lab0 {
-            lab0 = false;
+        let mut _lab0 = true;
+        'lab0: while _lab0 {
+            _lab0 = false;
             let v_1 = self.limit - self.cursor;
-            let mut lab1 = true;
-            'lab1: while lab1 {
-                lab1 = false;
+            let mut _lab1 = true;
+            'lab1: while _lab1 {
+                _lab1 = false;
                 // literal, line 94
                 if !self.eq_s_b("y") {
                     break 'lab1;
@@ -960,9 +962,9 @@ impl<'a> StemmerContext<'a> {
         // not, line 95
         {
             let v_2 = self.limit - self.cursor;
-            let mut lab2 = true;
-            'lab2: while lab2 {
-                lab2 = false;
+            let mut _lab2 = true;
+            'lab2: while _lab2 {
+                _lab2 = false;
                 // atlimit, line 95
                 if self.cursor > self.limit_backward {
                     break 'lab2;
@@ -1108,7 +1110,7 @@ impl<'a> StemmerContext<'a> {
             }
             16 => {
                 // (, line 122
-                if !self.in_grouping_b(&self.stemmer.g_valid_LI, 99, 116) {
+                if !self.in_grouping_b(&self.stemmer.g_valid_li, 99, 116) {
                     return false;
                 }
                 // delete, line 122
@@ -1216,13 +1218,13 @@ impl<'a> StemmerContext<'a> {
             2 => {
                 // (, line 145
                 // or, line 145
-                let mut lab0 = true;
-                'lab0: while lab0 {
-                    lab0 = false;
+                let mut _lab0 = true;
+                'lab0: while _lab0 {
+                    _lab0 = false;
                     let v_1 = self.limit - self.cursor;
-                    let mut lab1 = true;
-                    'lab1: while lab1 {
-                        lab1 = false;
+                    let mut _lab1 = true;
+                    'lab1: while _lab1 {
+                        _lab1 = false;
                         // literal, line 145
                         if !self.eq_s_b("s") {
                             break 'lab1;
@@ -1261,13 +1263,13 @@ impl<'a> StemmerContext<'a> {
             1 => {
                 // (, line 151
                 // or, line 151
-                let mut lab0 = true;
-                'lab0: while lab0 {
-                    lab0 = false;
+                let mut _lab0 = true;
+                'lab0: while _lab0 {
+                    _lab0 = false;
                     let v_1 = self.limit - self.cursor;
-                    let mut lab1 = true;
-                    'lab1: while lab1 {
-                        lab1 = false;
+                    let mut _lab1 = true;
+                    'lab1: while _lab1 {
+                        _lab1 = false;
                         // call R2, line 151
                         if !self.r_r2() {
                             break 'lab1;
@@ -1283,9 +1285,9 @@ impl<'a> StemmerContext<'a> {
                     // not, line 151
                     {
                         let v_2 = self.limit - self.cursor;
-                        let mut lab2 = true;
-                        'lab2: while lab2 {
-                            lab2 = false;
+                        let mut _lab2 = true;
+                        'lab2: while _lab2 {
+                            _lab2 = false;
                             // call shortv, line 151
                             if !self.r_shortv() {
                                 break 'lab2;
@@ -1455,22 +1457,22 @@ impl<'a> StemmerContext<'a> {
     fn r_postlude(&mut self) -> bool {
         // (, line 206
         // Boolean test Y_found, line 206
-        if !self.B_Y_found {
+        if !self.b_y_found {
             return false;
         }
         // repeat, line 206
         'replab0: loop {
             let v_1 = self.cursor;
-            let mut lab1 = true;
-            'lab1: while lab1 {
-                lab1 = false;
+            let mut _lab1 = true;
+            'lab1: while _lab1 {
+                _lab1 = false;
                 // (, line 206
                 // goto, line 206
                 'golab2: loop {
                     let v_2 = self.cursor;
-                    let mut lab3 = true;
-                    'lab3: while lab3 {
-                        lab3 = false;
+                    let mut _lab3 = true;
+                    'lab3: while _lab3 {
+                        _lab3 = false;
                         // (, line 206
                         // [, line 206
                         self.bra = self.cursor;

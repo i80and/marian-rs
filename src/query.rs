@@ -16,10 +16,13 @@ fn have_contiguous_path(tree: &[&[u32]], last_candidate: Option<u32>) -> bool {
     }
 
     for &element in tree[0] {
-        if last_candidate.is_none() || element == last_candidate.unwrap() + 1 {
-            if have_contiguous_path(&tree[1..], Some(element)) {
-                return true;
-            }
+        if match last_candidate {
+            None => true,
+            Some(e) if element == e + 1 => true,
+            _ => continue,
+        } && have_contiguous_path(&tree[1..], Some(element))
+        {
+            return true;
         }
     }
 
