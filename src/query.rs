@@ -106,14 +106,7 @@ impl Query {
     /// appearing in the match.
     pub fn check_phrases(&self, tokens: &HashMap<&String, &[u32]>) -> bool {
         for phrase_tokens in &self.stemmed_phrases {
-            let mut have_match = false;
-
-            if have_contiguous_keywords(phrase_tokens.as_slice(), tokens) {
-                have_match = true;
-                break;
-            }
-
-            if !have_match {
+            if !have_contiguous_keywords(phrase_tokens.as_slice(), tokens) {
                 return false;
             }
         }
@@ -239,13 +232,21 @@ mod tests {
     #[test]
     fn test_check_phrases_negative() {
         // it should refuse phrases without adjacent words
-        let query = Query::new("\"Quoth the raven\"");
+        let query = Query::new("\"foo bar\" \"Quoth the raven\"");
         let s1 = "quoth".to_owned();
         let s2 = "raven".to_owned();
+        let s3 = "foo".to_owned();
+        let s4 = "bar".to_owned();
         let v1 = vec![0, 3];
         let v2 = vec![2, 5];
+        let v3 = vec![6];
+        let v4 = vec![7];
 
-        let token_positions = hashmap![&s1 => v1.as_slice(), &s2 => v2.as_slice()];
+        let token_positions = hashmap![
+            &s1 => v1.as_slice(),
+            &s2 => v2.as_slice(),
+            &s3 => v3.as_slice(),
+            &s4 => v4.as_slice(),];
         assert_eq!(query.check_phrases(&token_positions), false);
     }
 }
