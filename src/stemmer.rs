@@ -150,8 +150,7 @@ pub fn stem(word: &str) -> String {
         return word.to_owned();
     }
 
-    let mut word = word.to_owned();
-    StemmerContext::new(&mut word).get().to_owned()
+    StemmerContext::new(word).get().to_owned()
 }
 
 pub fn tokenize(text: &str, fuzzy: bool) -> Vec<String> {
@@ -235,6 +234,11 @@ mod tests {
             vec!["ops manager", "configuration"]
         );
         assert_eq!(stem("ops manager"), "ops manager");
+    }
+
+    #[test]
+    fn test_nonascii() {
+        assert_eq!(stem("ˈɒmnivɔər"), "ˈɒmnivɔər");
     }
 
     #[test]
