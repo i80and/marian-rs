@@ -1,46 +1,6 @@
 #![allow(unknown_lints, clippy)]
 
-use std::borrow::{Borrow, BorrowMut};
-use std::ops::{Deref, DerefMut};
 use std::cmp;
-
-enum StringWrapper<'a> {
-    Borrowed(&'a mut str),
-    Owned(String),
-}
-
-impl<'a> From<&'a mut str> for StringWrapper<'a> {
-    fn from(s: &'a mut str) -> StringWrapper<'a> {
-        StringWrapper::Borrowed(s)
-    }
-}
-
-impl<'a> From<String> for StringWrapper<'a> {
-    #[inline]
-    fn from(s: String) -> StringWrapper<'a> {
-        StringWrapper::Owned(s)
-    }
-}
-
-impl<'a> Deref for StringWrapper<'a> {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        match *self {
-            StringWrapper::Borrowed(ref borrowed) => borrowed,
-            StringWrapper::Owned(ref owned) => owned.borrow(),
-        }
-    }
-}
-
-impl<'a> DerefMut for StringWrapper<'a> {
-    fn deref_mut(&mut self) -> &mut str {
-        match *self {
-            StringWrapper::Borrowed(ref mut borrowed) => borrowed,
-            StringWrapper::Owned(ref mut owned) => owned.borrow_mut(),
-        }
-    }
-}
 
 struct Among {
     s: &'static str,
@@ -232,13 +192,13 @@ lazy_static! {
     static ref STEMMER: Stemmer = Stemmer::new();
 }
 
-pub struct StemmerContext<'a> {
-    stemmer: &'a Stemmer,
+pub struct StemmerContext {
+    stemmer: &'static Stemmer,
     b_y_found: bool,
     i_p2: i32,
     i_p1: i32,
 
-    current: StringWrapper<'a>,
+    current: Vec<char>,
     cursor: i32,
     limit: i32,
     limit_backward: i32,
@@ -246,16 +206,17 @@ pub struct StemmerContext<'a> {
     ket: i32,
 }
 
-impl<'a> StemmerContext<'a> {
-    pub fn new(value: &'a mut str) -> Self {
-        let len = value.len() as i32;
+impl StemmerContext {
+    pub fn new(value: &str) -> Self {
+        let current: Vec<_> = value.chars().collect();
+        let len = current.len() as i32;
         let mut ctx = Self {
             stemmer: &STEMMER,
             b_y_found: false,
             i_p2: 0,
             i_p1: 0,
 
-            current: StringWrapper::from(value),
+            current,
             cursor: 0,
             limit: len,
             limit_backward: 0,
@@ -267,11 +228,10 @@ impl<'a> StemmerContext<'a> {
         ctx
     }
 
-    pub fn get(&self) -> &str {
-        match self.current {
-            StringWrapper::Borrowed(ref s) => s,
-            StringWrapper::Owned(ref s) => s,
-        }
+    pub fn get(&self) -> String {
+        let mut s = String::with_capacity(self.current.len());
+        s.extend(self.current.iter());
+        s
     }
 
     fn stem(&mut self) -> bool {
@@ -616,7 +576,7 @@ impl<'a> StemmerContext<'a> {
             // [, line 27
             self.bra = self.cursor;
             // literal, line 27
-            if !(self.eq_s("'")) {
+            if !(self.eq_s(&['\''])) {
                 break;
             }
             // ], line 27
@@ -636,13 +596,13 @@ impl<'a> StemmerContext<'a> {
             // [, line 28
             self.bra = self.cursor;
             // literal, line 28
-            if !(self.eq_s("y")) {
+            if !(self.eq_s(&['y'])) {
                 break;
             }
             // ], line 28
             self.ket = self.cursor;
             // <-, line 28
-            if !self.slice_from("Y") {
+            if !self.slice_from(&['Y']) {
                 return false;
             }
             // set Y_found, line 28
@@ -674,7 +634,7 @@ impl<'a> StemmerContext<'a> {
                             // [, line 29
                             self.bra = self.cursor;
                             // literal, line 29
-                            if !self.eq_s("y") {
+                            if !self.eq_s(&['y']) {
                                 break 'lab6;
                             }
                             // ], line 29
@@ -689,7 +649,7 @@ impl<'a> StemmerContext<'a> {
                         self.cursor += 1;
                     }
                     // <-, line 29
-                    if !self.slice_from("Y") {
+                    if !self.slice_from(&['Y']) {
                         return false;
                     }
                     // set Y_found, line 29
@@ -751,7 +711,7 @@ impl<'a> StemmerContext<'a> {
             1 => {
                 // (, line 66
                 // <-, line 66
-                if !self.slice_from("ss") {
+                if !self.slice_from(&['s', 's']) {
                     return false;
                 }
             }
@@ -775,14 +735,14 @@ impl<'a> StemmerContext<'a> {
                             self.cursor = c;
                         }
                         // <-, line 68
-                        if !self.slice_from("i") {
+                        if !self.slice_from(&['i']) {
                             return false;
                         }
                         break 'lab1;
                     }
                     self.cursor = self.limit - v_2;
                     // <-, line 68
-                    if !self.slice_from("ie") {
+                    if !self.slice_from(&['i', 'e']) {
                         return false;
                     }
                 }
@@ -839,7 +799,7 @@ impl<'a> StemmerContext<'a> {
                     return false;
                 }
                 // <-, line 77
-                if !self.slice_from("ee") {
+                if !self.slice_from(&['e', 'e']) {
                     return false;
                 }
             }
@@ -882,7 +842,7 @@ impl<'a> StemmerContext<'a> {
                         // <+, line 83
                         {
                             let c = self.cursor;
-                            self.insert(c, c, "e");
+                            self.insert(c, c, &['e']);
                             self.cursor = c;
                         }
                     }
@@ -918,7 +878,7 @@ impl<'a> StemmerContext<'a> {
                         // <+, line 87
                         {
                             let c = self.cursor;
-                            self.insert(c, c, "e");
+                            self.insert(c, c, &['e']);
                             self.cursor = c;
                         }
                     }
@@ -943,14 +903,14 @@ impl<'a> StemmerContext<'a> {
             'lab1: while _lab1 {
                 _lab1 = false;
                 // literal, line 94
-                if !self.eq_s_b("y") {
+                if !self.eq_s_b(&['y']) {
                     break 'lab1;
                 }
                 break 'lab0;
             }
             self.cursor = self.limit - v_1;
             // literal, line 94
-            if !self.eq_s_b("Y") {
+            if !self.eq_s_b(&['Y']) {
                 return false;
             }
         }
@@ -974,7 +934,7 @@ impl<'a> StemmerContext<'a> {
             self.cursor = self.limit - v_2;
         }
         // <-, line 96
-        if !self.slice_from("i") {
+        if !self.slice_from(&['i']) {
             return false;
         }
         true
@@ -1002,109 +962,109 @@ impl<'a> StemmerContext<'a> {
             1 => {
                 // (, line 101
                 // <-, line 101
-                if !self.slice_from("tion") {
+                if !self.slice_from(&['t', 'i', 'o', 'n']) {
                     return false;
                 }
             }
             2 => {
                 // (, line 102
                 // <-, line 102
-                if !self.slice_from("ence") {
+                if !self.slice_from(&['e', 'n', 'c', 'e']) {
                     return false;
                 }
             }
             3 => {
                 // (, line 103
                 // <-, line 103
-                if !self.slice_from("ance") {
+                if !self.slice_from(&['a', 'n', 'c', 'e']) {
                     return false;
                 }
             }
             4 => {
                 // (, line 104
                 // <-, line 104
-                if !self.slice_from("able") {
+                if !self.slice_from(&['a', 'b', 'l', 'e']) {
                     return false;
                 }
             }
             5 => {
                 // (, line 105
                 // <-, line 105
-                if !self.slice_from("ent") {
+                if !self.slice_from(&['e', 'n', 't']) {
                     return false;
                 }
             }
             6 => {
                 // (, line 107
                 // <-, line 107
-                if !self.slice_from("ize") {
+                if !self.slice_from(&['i', 'z', 'e']) {
                     return false;
                 }
             }
             7 => {
                 // (, line 109
                 // <-, line 109
-                if !self.slice_from("ate") {
+                if !self.slice_from(&['a', 't', 'e']) {
                     return false;
                 }
             }
             8 => {
                 // (, line 111
                 // <-, line 111
-                if !self.slice_from("al") {
+                if !self.slice_from(&['a', 'l']) {
                     return false;
                 }
             }
             9 => {
                 // (, line 112
                 // <-, line 112
-                if !self.slice_from("ful") {
+                if !self.slice_from(&['f', 'u', 'l']) {
                     return false;
                 }
             }
             10 => {
                 // (, line 114
                 // <-, line 114
-                if !self.slice_from("ous") {
+                if !self.slice_from(&['o', 'u', 's']) {
                     return false;
                 }
             }
             11 => {
                 // (, line 116
                 // <-, line 116
-                if !self.slice_from("ive") {
+                if !self.slice_from(&['i', 'v', 'e']) {
                     return false;
                 }
             }
             12 => {
                 // (, line 118
                 // <-, line 118
-                if !self.slice_from("ble") {
+                if !self.slice_from(&['b', 'l', 'e']) {
                     return false;
                 }
             }
             13 => {
                 // (, line 119
                 // literal, line 119
-                if !self.eq_s_b("l") {
+                if !self.eq_s_b(&['l']) {
                     return false;
                 }
                 // <-, line 119
-                if !self.slice_from("og") {
+                if !self.slice_from(&['o', 'g']) {
                     return false;
                 }
             }
             14 => {
                 // (, line 120
                 // <-, line 120
-                if !self.slice_from("ful") {
+                if !self.slice_from(&['f', 'u', 'l']) {
                     return false;
                 }
             }
             15 => {
                 // (, line 121
                 // <-, line 121
-                if !self.slice_from("less") {
+                if !self.slice_from(&['l', 'e', 's', 's']) {
                     return false;
                 }
             }
@@ -1143,28 +1103,28 @@ impl<'a> StemmerContext<'a> {
             1 => {
                 // (, line 128
                 // <-, line 128
-                if !self.slice_from("tion") {
+                if !self.slice_from(&['t', 'i', 'o', 'n']) {
                     return false;
                 }
             }
             2 => {
                 // (, line 129
                 // <-, line 129
-                if !self.slice_from("ate") {
+                if !self.slice_from(&['a', 't', 'e']) {
                     return false;
                 }
             }
             3 => {
                 // (, line 130
                 // <-, line 130
-                if !self.slice_from("al") {
+                if !self.slice_from(&['a', 'l']) {
                     return false;
                 }
             }
             4 => {
                 // (, line 132
                 // <-, line 132
-                if !self.slice_from("ic") {
+                if !self.slice_from(&['i', 'c']) {
                     return false;
                 }
             }
@@ -1226,14 +1186,14 @@ impl<'a> StemmerContext<'a> {
                     'lab1: while _lab1 {
                         _lab1 = false;
                         // literal, line 145
-                        if !self.eq_s_b("s") {
+                        if !self.eq_s_b(&['s']) {
                             break 'lab1;
                         }
                         break 'lab0;
                     }
                     self.cursor = self.limit - v_1;
                     // literal, line 145
-                    if !self.eq_s_b("t") {
+                    if !self.eq_s_b(&['t']) {
                         return false;
                     }
                 }
@@ -1309,7 +1269,7 @@ impl<'a> StemmerContext<'a> {
                     return false;
                 }
                 // literal, line 152
-                if !self.eq_s_b("l") {
+                if !self.eq_s_b(&['l']) {
                     return false;
                 }
                 // delete, line 152
@@ -1344,91 +1304,91 @@ impl<'a> StemmerContext<'a> {
             1 => {
                 // (, line 174
                 // <-, line 174
-                if !self.slice_from("ski") {
+                if !self.slice_from(&['s', 'k', 'i']) {
                     return false;
                 }
             }
             2 => {
                 // (, line 175
                 // <-, line 175
-                if !self.slice_from("sky") {
+                if !self.slice_from(&['s', 'k', 'y']) {
                     return false;
                 }
             }
             3 => {
                 // (, line 176
                 // <-, line 176
-                if !self.slice_from("die") {
+                if !self.slice_from(&['d', 'i', 'e']) {
                     return false;
                 }
             }
             4 => {
                 // (, line 177
                 // <-, line 177
-                if !self.slice_from("lie") {
+                if !self.slice_from(&['l', 'i', 'e']) {
                     return false;
                 }
             }
             5 => {
                 // (, line 178
                 // <-, line 178
-                if !self.slice_from("tie") {
+                if !self.slice_from(&['t', 'i', 'e']) {
                     return false;
                 }
             }
             6 => {
                 // (, line 179
                 // <-, line 179
-                if !self.slice_from("replic") {
+                if !self.slice_from(&['r', 'e', 'p', 'l', 'i', 'c']) {
                     return false;
                 }
             }
             7 => {
                 // (, line 180
                 // <-, line 180
-                if !self.slice_from("important") {
+                if !self.slice_from(&['i', 'm', 'p', 'o', 'r', 't', 'a', 'n', 't']) {
                     return false;
                 }
             }
             8 => {
                 // (, line 184
                 // <-, line 184
-                if !self.slice_from("idl") {
+                if !self.slice_from(&['i', 'd', 'l']) {
                     return false;
                 }
             }
             9 => {
                 // (, line 185
                 // <-, line 185
-                if !self.slice_from("gentl") {
+                if !self.slice_from(&['g', 'e', 'n', 't', 'l']) {
                     return false;
                 }
             }
             10 => {
                 // (, line 186
                 // <-, line 186
-                if !self.slice_from("ugli") {
+                if !self.slice_from(&['u', 'g', 'l', 'i']) {
                     return false;
                 }
             }
             11 => {
                 // (, line 187
                 // <-, line 187
-                if !self.slice_from("earli") {
+                if !self.slice_from(&['e', 'a', 'r', 'l', 'i']) {
                     return false;
                 }
             }
             12 => {
                 // (, line 188
                 // <-, line 188
-                if !self.slice_from("onli") {
+                if !self.slice_from(&['o', 'n', 'l', 'i']) {
                     return false;
                 }
             }
             13 => {
                 // (, line 189
                 // <-, line 189
-                if !self.slice_from("singl") {
+                if !self.slice_from(&['s', 'i', 'n', 'g', 'l']) {
                     return false;
                 }
             }
@@ -1477,7 +1437,7 @@ impl<'a> StemmerContext<'a> {
                         // [, line 206
                         self.bra = self.cursor;
                         // literal, line 206
-                        if !self.eq_s("Y") {
+                        if !self.eq_s(&['Y']) {
                             break 'lab3;
                         }
                         // ], line 206
@@ -1492,7 +1452,7 @@ impl<'a> StemmerContext<'a> {
                     self.cursor += 1;
                 }
                 // <-, line 206
-                if !self.slice_from("y") {
+                if !self.slice_from(&['y']) {
                     return false;
                 }
                 continue 'replab0;
@@ -1508,7 +1468,7 @@ impl<'a> StemmerContext<'a> {
             return false;
         }
 
-        let mut ch = self.current.chars().nth(self.cursor as usize).unwrap() as u32;
+        let mut ch = self.current[self.cursor as usize] as u32;
         if ch > max || ch < min {
             return false;
         }
@@ -1526,7 +1486,7 @@ impl<'a> StemmerContext<'a> {
         if self.cursor <= self.limit_backward {
             return false;
         }
-        let mut ch = self.current.chars().nth(self.cursor as usize - 1).unwrap() as u32;
+        let mut ch = self.current[self.cursor as usize - 1] as u32;
         if ch > max || ch < min {
             return false;
         }
@@ -1542,7 +1502,7 @@ impl<'a> StemmerContext<'a> {
         if self.cursor >= self.limit {
             return false;
         }
-        let mut ch = self.current.chars().nth(self.cursor as usize).unwrap() as u32;
+        let mut ch = self.current[self.cursor as usize] as u32;
         if ch > max || ch < min {
             self.cursor += 1;
             return true;
@@ -1559,7 +1519,7 @@ impl<'a> StemmerContext<'a> {
         if self.cursor <= self.limit_backward {
             return false;
         }
-        let mut ch = self.current.chars().nth(self.cursor as usize - 1).unwrap() as u32;
+        let mut ch = self.current[self.cursor as usize - 1] as u32;
         if ch > max || ch < min {
             self.cursor -= 1;
             return true;
@@ -1594,7 +1554,7 @@ impl<'a> StemmerContext<'a> {
                     diff = -1;
                     break;
                 }
-                diff = self.current.chars().nth((c + common) as usize).unwrap() as i32
+                diff = self.current[(c + common) as usize] as i32
                     - w.s.chars().nth(i2 as usize).unwrap() as i32;
                 if diff != 0 {
                     break;
@@ -1664,7 +1624,7 @@ impl<'a> StemmerContext<'a> {
                     diff = -1;
                     break;
                 }
-                diff = self.current.chars().nth((c - 1 - common) as usize).unwrap() as i32
+                diff = self.current[(c - 1 - common) as usize] as i32
                     - w.s.chars().nth(i2 as usize).unwrap() as i32;
                 if diff != 0 {
                     break;
@@ -1710,14 +1670,22 @@ impl<'a> StemmerContext<'a> {
     /* to replace chars between c_bra and c_ket in self.current by the
      * chars in s.
      */
-    fn replace_s(&mut self, c_bra: i32, c_ket: i32, s: &str) -> i32 {
+    fn replace_s(&mut self, c_bra: i32, c_ket: i32, s: &[char]) -> i32 {
         let adjustment = s.len() as i32 - (c_ket - c_bra);
-        self.current = StringWrapper::from(format!(
-            "{}{}{}",
-            &self.current[0..c_bra as usize],
-            s,
-            &self.current[c_ket as usize..]
-        ));
+
+
+        let new_current = {
+            let part1 = &self.current[0..c_bra as usize];
+            let part3 = &self.current[c_ket as usize..];
+            let mut new_current = Vec::with_capacity(part1.len() + s.len() + part3.len());
+            new_current.extend(part1);
+            new_current.extend(s);
+            new_current.extend(part3);
+
+            new_current
+        };
+
+        self.current = new_current;
         self.limit += adjustment;
         if self.cursor >= c_ket {
             self.cursor += adjustment;
@@ -1738,7 +1706,7 @@ impl<'a> StemmerContext<'a> {
         true
     }
 
-    fn slice_from(&mut self, s: &str) -> bool {
+    fn slice_from(&mut self, s: &[char]) -> bool {
         if self.slice_check() {
             let bra = self.bra;
             let ket = self.ket;
@@ -1750,10 +1718,10 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn slice_del(&mut self) -> bool {
-        self.slice_from("")
+        self.slice_from(&[])
     }
 
-    fn insert(&mut self, c_bra: i32, c_ket: i32, s: &str) {
+    fn insert(&mut self, c_bra: i32, c_ket: i32, s: &[char]) {
         let adjustment = self.replace_s(c_bra, c_ket, s);
         if c_bra <= self.bra {
             self.bra += adjustment;
@@ -1763,7 +1731,7 @@ impl<'a> StemmerContext<'a> {
         }
     }
 
-    fn eq_s_b(&mut self, s: &str) -> bool {
+    fn eq_s_b(&mut self, s: &[char]) -> bool {
         if self.cursor - self.limit_backward < s.len() as i32 {
             return false;
         }
@@ -1776,7 +1744,7 @@ impl<'a> StemmerContext<'a> {
         true
     }
 
-    fn eq_s(&mut self, s: &str) -> bool {
+    fn eq_s(&mut self, s: &[char]) -> bool {
         if self.limit - self.cursor < s.len() as i32 {
             return false;
         }
