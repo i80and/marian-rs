@@ -199,6 +199,7 @@ mod tests {
     use std::io::prelude::*;
     use std::fs::File;
     use std::io::BufReader;
+    use test::Bencher;
 
     #[test]
     fn test_split_on_whitespace() {
@@ -258,5 +259,27 @@ mod tests {
             let stemmed = stem(word);
             assert_eq!(stemmed, correct_stemmed);
         }
+    }
+
+    #[bench]
+    fn bench(b: &mut Bencher) {
+        let f = File::open("test/stemmed-corpus.txt").expect("Failed to open porter2 test corpus");
+        let buffered_reader = BufReader::new(&f);
+        let words: Vec<String> = buffered_reader.lines().filter_map(|raw_line| {
+            let raw_line = raw_line.unwrap();
+            let trimmed = raw_line.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+
+            let parts: Vec<_> = trimmed.split_whitespace().take(2).collect();
+            Some(parts[0].to_owned())
+        }).collect();
+
+        b.iter(|| {
+            for word in words.iter() {
+                stem(&word);
+            }
+        });
     }
 }

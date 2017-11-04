@@ -1,3 +1,5 @@
+#![feature(test)]
+
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
@@ -5,6 +7,9 @@ extern crate lazy_static;
 extern crate maplit;
 extern crate qp_trie;
 extern crate regex;
+
+#[cfg(test)]
+extern crate test;
 
 use std::collections::HashMap;
 
