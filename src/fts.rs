@@ -32,99 +32,6 @@ fn compute_relevancy_threshold(matches: &[SearchMatch]) -> f32 {
     (1.0 / (matches.len() as f32 - 1.0) * sum).log2()
 }
 
-fn hits(
-    mut matches: Vec<SearchMatch>,
-    convergance_threshold: f32,
-    max_iterations: u32,
-) -> Vec<SearchMatch> {
-    let mut last_authority_norm = 0.0;
-    let mut last_hub_norm = 0.0;
-    for _ in 0..max_iterations {
-        let mut authority_norm: f32 = 0.0;
-        // Update all authority scores
-        for mut m in &mut matches {
-            m.authority_score = 0.0;
-            for incoming_match_id in &m.incoming_neighbors {
-                // m.authority_score += incoming_match.hub_score;
-            }
-            authority_norm += m.authority_score.powf(2.0);
-        }
-
-        // Normalise the authority scores
-        let authority_norm = authority_norm.sqrt();
-        for mut m in &mut matches {
-            m.authority_score /= authority_norm;
-        }
-
-        // Update all hub scores
-        let mut hub_norm: f32 = 0.0;
-        for mut m in &mut matches {
-            m.hub_score = 0.0;
-            for outgoing_match in &m.outgoing_neighbors {
-                // m.hub_score += outgoing_match.authority_score;
-            }
-            hub_norm += m.hub_score.powf(2.0);
-        }
-
-        // Normalise the hub scores
-        let hub_norm = hub_norm.sqrt();
-        for mut m in &mut matches {
-            m.hub_score /= hub_norm
-        }
-
-        if (authority_norm - last_authority_norm).abs() < convergance_threshold
-            && (hub_norm - last_hub_norm).abs() < convergance_threshold
-        {
-            break;
-        }
-
-        last_authority_norm = authority_norm;
-        last_hub_norm = hub_norm;
-    }
-
-    // Cut anything with zero relevancy
-    let mut matches: Vec<SearchMatch> = matches
-        .drain(..)
-        .filter(|m| m.relevancy_score > 0.0)
-        .collect();
-
-    // Compute statistics for score normalization
-    let mut max_relevancy_score: f32 = 0.0;
-    let mut max_authority_score: f32 = 0.0;
-    let relevancy_score_threshold = compute_relevancy_threshold(&matches);
-    for mut m in &mut matches {
-        if m.authority_score.is_nan() {
-            m.authority_score = 1e-10;
-        }
-
-        // Ignore anything with bad relevancy for the purposes of score normalization
-        if m.relevancy_score < relevancy_score_threshold {
-            continue;
-        }
-
-        if m.relevancy_score > max_relevancy_score {
-            max_relevancy_score = m.relevancy_score;
-        }
-        if m.authority_score > max_authority_score {
-            max_authority_score = m.authority_score;
-        }
-    }
-
-    // Compute the final ranking score
-    for mut m in &mut matches {
-        m.compute_score(max_relevancy_score, max_authority_score);
-
-        // Penalize anything with especially poor relevancy
-        if m.relevancy_score < relevancy_score_threshold * 2.5 {
-            m.score -= relevancy_score_threshold / m.relevancy_score;
-        }
-    }
-
-    matches.sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
-    matches.truncate(MAX_MATCHES);
-    matches
-}
-
 /// Yuanhua Lv and ChengXiang Zhai. 2011. Lower-bounding term frequency
 /// normalization. In Proceedings of the 20th ACM international
 /// conference on Information and knowledge management (CIKM '11), Bettina
@@ -200,14 +107,13 @@ impl DocumentEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct SearchMatch {
     _id: DocID,
     relevancy_score: f32,
     terms: HashSet<String>,
 
     score: f32,
-    authority_score: f32,
-    hub_score: f32,
     incoming_neighbors: Vec<DocID>,
     outgoing_neighbors: Vec<DocID>,
 }
@@ -220,16 +126,19 @@ impl SearchMatch {
             terms: HashSet::new(),
 
             score: 0.0,
-            authority_score: 1.0,
-            hub_score: 1.0,
             incoming_neighbors: vec![],
             outgoing_neighbors: vec![],
         }
     }
 
-    fn compute_score(&mut self, max_relevancy_score: f32, max_authority_score: f32) {
+    fn compute_score(
+        &mut self,
+        max_relevancy_score: f32,
+        authority_score: f32,
+        max_authority_score: f32,
+    ) {
         let normalized_relevancy_score = self.relevancy_score / max_relevancy_score + 1.0;
-        let normalized_authority_score = self.authority_score / max_authority_score + 1.0;
+        let normalized_authority_score = authority_score / max_authority_score + 1.0;
         self.score = normalized_relevancy_score.log2() + normalized_authority_score.log2();
     }
 }
@@ -275,6 +184,165 @@ pub struct Document {
     pub data: HashMap<String, String>,
 }
 
+struct MatchSet {
+    matches: Vec<SearchMatch>,
+    doc_id_to_match_id: HashMap<DocID, u32>,
+}
+
+impl MatchSet {
+    fn new() -> Self {
+        Self {
+            matches: vec![],
+            doc_id_to_match_id: HashMap::new(),
+        }
+    }
+
+    fn insert(&mut self, mut search_match: SearchMatch, fts: &FTSIndex) {
+        let match_id = self.matches.len() as u32;
+        let doc_id = search_match._id;
+
+        if let Some(v) = fts.incoming_neighbors.get(&doc_id) {
+            search_match.incoming_neighbors.extend(v.iter().cloned());
+        }
+
+        if let Some(v) = fts.outgoing_neighbors.get(&doc_id) {
+            search_match.outgoing_neighbors.extend(v.iter().cloned());
+        }
+
+        self.matches.push(search_match);
+        self.doc_id_to_match_id.insert(doc_id, match_id);
+    }
+
+    fn get_neighbors(&mut self, doc_id: DocID) {
+        let match_id = self.doc_id_to_match_id[&doc_id];
+        let search_match = &mut self.matches[match_id as usize];
+
+        let mut incoming_neighbors = vec![];
+        let mut outgoing_neighbors = vec![];
+
+        for &neighbor_id in &search_match.incoming_neighbors {
+            // base_set
+            //     .entry(neighbor_id)
+            //     .or_insert_with(|| SearchMatch::new(neighbor_id));
+            incoming_neighbors.push(neighbor_id);
+        }
+
+        for &neighbor_id in &search_match.outgoing_neighbors {
+            // base_set
+            //     .entry(neighbor_id)
+            //     .or_insert_with(|| SearchMatch::new(neighbor_id));
+            outgoing_neighbors.push(neighbor_id);
+        }
+
+        search_match
+            .incoming_neighbors
+            .extend(incoming_neighbors.iter());
+        search_match
+            .outgoing_neighbors
+            .extend(outgoing_neighbors.iter());
+    }
+
+    fn finish(&mut self, root_set: &[DocID]) {
+        for &doc_id in root_set {
+            self.get_neighbors(doc_id);
+        }
+    }
+
+    fn hits(&mut self, convergance_threshold: f32, max_iterations: u32) -> Vec<SearchMatch> {
+        let mut last_authority_norm = 0.0;
+        let mut last_hub_norm = 0.0;
+
+        let mut authority_scores: Vec<f32> = vec![1.0; self.matches.len()];
+        let mut hub_scores: Vec<f32> = vec![1.0; self.matches.len()];
+
+        for _ in 0..max_iterations {
+            let mut authority_norm: f32 = 0.0;
+            // Update all authority scores
+            for (match_id, search_match) in self.matches.iter().enumerate() {
+                authority_scores[match_id] = 0.0;
+                for &incoming_match_id in &search_match.incoming_neighbors {
+                    authority_scores[match_id] += hub_scores[incoming_match_id as usize];
+                }
+                authority_norm += authority_scores[match_id].powf(2.0);
+            }
+
+            // Normalise the authority scores
+            let authority_norm = authority_norm.sqrt();
+            for authority_score in &mut authority_scores {
+                *authority_score /= authority_norm;
+            }
+
+            // Update all hub scores
+            let mut hub_norm: f32 = 0.0;
+            for (match_id, mut search_match) in self.matches.iter().enumerate() {
+                hub_scores[match_id] = 0.0;
+                for &outgoing_match_id in &search_match.outgoing_neighbors {
+                    hub_scores[match_id] += authority_scores[outgoing_match_id as usize];
+                }
+                hub_norm += hub_scores[match_id].powf(2.0);
+            }
+
+            // Normalise the hub scores
+            let hub_norm = hub_norm.sqrt();
+            for hub_score in &mut hub_scores {
+                *hub_score /= hub_norm;
+            }
+
+            if (authority_norm - last_authority_norm).abs() < convergance_threshold
+                && (hub_norm - last_hub_norm).abs() < convergance_threshold
+            {
+                break;
+            }
+
+            last_authority_norm = authority_norm;
+            last_hub_norm = hub_norm;
+        }
+
+        // Cut anything with zero relevancy
+        let mut matches: Vec<SearchMatch> = self.matches
+            .drain(..)
+            .filter(|m| m.relevancy_score > 0.0)
+            .collect();
+
+        // Compute statistics for score normalization
+        let mut max_relevancy_score: f32 = 0.0;
+        let mut max_authority_score: f32 = 0.0;
+        let relevancy_score_threshold = compute_relevancy_threshold(&matches);
+        for (match_id, search_match) in matches.iter().enumerate() {
+            if authority_scores[match_id].is_nan() {
+                authority_scores[match_id] = 1e-10;
+            }
+
+            // Ignore anything with bad relevancy for the purposes of score normalization
+            if search_match.relevancy_score < relevancy_score_threshold {
+                continue;
+            }
+
+            if search_match.relevancy_score > max_relevancy_score {
+                max_relevancy_score = search_match.relevancy_score;
+            }
+            if authority_scores[match_id] > max_authority_score {
+                max_authority_score = authority_scores[match_id];
+            }
+        }
+
+        // Compute the final ranking score
+        for (match_id, mut search_match) in matches.iter_mut().enumerate() {
+            let authority_score = authority_scores[match_id];
+            search_match.compute_score(max_relevancy_score, authority_score, max_authority_score);
+
+            // Penalize anything with especially poor relevancy
+            if search_match.relevancy_score < relevancy_score_threshold * 2.5 {
+                search_match.score -= relevancy_score_threshold / search_match.relevancy_score;
+            }
+        }
+
+        matches.sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
+        matches.truncate(MAX_MATCHES);
+        matches
+    }
+}
+
 pub struct FTSIndex {
     fields: Vec<Field>,
     trie: Trie,
@@ -288,8 +356,8 @@ pub struct FTSIndex {
     url_to_id: HashMap<String, DocID>,
     id_to_url: HashMap<DocID, String>,
 
-    incoming_neighbors: Vec<Vec<DocID>>,
-    outgoing_neighbors: Vec<Vec<DocID>>,
+    incoming_neighbors: HashMap<DocID, Vec<DocID>>,
+    outgoing_neighbors: HashMap<DocID, Vec<DocID>>,
 
     word_correlations: HashMap<String, Vec<(String, f32)>>,
 
@@ -311,8 +379,8 @@ impl FTSIndex {
             url_to_id: HashMap::new(),
             id_to_url: HashMap::new(),
 
-            incoming_neighbors: vec![],
-            outgoing_neighbors: vec![],
+            incoming_neighbors: hashmap![],
+            outgoing_neighbors: hashmap![],
 
             word_correlations: HashMap::new(),
 
@@ -448,6 +516,9 @@ impl FTSIndex {
     }
 
     pub fn finish(&mut self) {
+        self.outgoing_neighbors.clear();
+        self.incoming_neighbors.clear();
+
         for field in &mut self.fields {
             field.compute_length_weight();
         }
@@ -463,7 +534,7 @@ impl FTSIndex {
             }
 
             let mut outgoing_neighbors: Vec<_> = outgoing_neighbors_set.drain().cloned().collect();
-            self.outgoing_neighbors[doc_id as usize] = outgoing_neighbors.to_owned();
+            self.outgoing_neighbors.insert(doc_id, outgoing_neighbors);
 
             let mut incoming_neighbors_set = HashSet::new();
             if let Some(urls) = self.inverse_link_graph.get(url) {
@@ -475,38 +546,10 @@ impl FTSIndex {
             }
 
             let incoming_neighbors: Vec<_> = incoming_neighbors_set.drain().cloned().collect();
-            self.incoming_neighbors[doc_id as usize] = incoming_neighbors.to_owned();
+            self.incoming_neighbors.insert(doc_id, incoming_neighbors);
         }
 
         self.dirty = false;
-    }
-
-    fn get_neighbors(&self, base_set: &mut HashMap<DocID, SearchMatch>, doc_id: DocID) {
-        let outgoing_neighbors = match self.outgoing_neighbors.get(doc_id as usize) {
-            Some(v) => v.to_owned(),
-            None => return,
-        };
-
-        let incoming_neighbors = match self.incoming_neighbors.get(doc_id as usize) {
-            Some(v) => v.to_owned(),
-            None => return,
-        };
-
-        for &neighbor_id in &incoming_neighbors {
-            base_set
-                .entry(neighbor_id)
-                .or_insert_with(|| SearchMatch::new(neighbor_id));
-            let mut origin_match = base_set.get_mut(&doc_id).unwrap();
-            origin_match.incoming_neighbors.push(neighbor_id);
-        }
-
-        for &neighbor_id in &outgoing_neighbors {
-            base_set
-                .entry(neighbor_id)
-                .or_insert_with(|| SearchMatch::new(neighbor_id));
-            let mut origin_match = base_set.get_mut(&doc_id).unwrap();
-            origin_match.outgoing_neighbors.push(neighbor_id);
-        }
     }
 
     fn collect_matches_from_trie<'a, I>(&self, terms: I) -> Vec<(DocID, Vec<&str>)>
@@ -523,7 +566,11 @@ impl FTSIndex {
         result_set
     }
 
-    pub fn search(&self, query: Query, use_hits: bool) -> Vec<SearchMatch> {
+    pub fn search(&self, query: Query) -> Vec<SearchMatch> {
+        if self.dirty {
+            panic!("Must call FTSIndex::finish()")
+        }
+
         let mut match_set: HashMap<DocID, SearchMatch> = HashMap::new();
         let original_terms: HashSet<_> = query.terms.iter().collect();
         let original_terms: Vec<_> = original_terms.into_iter().collect();
@@ -591,7 +638,6 @@ impl FTSIndex {
         }
 
         // Create a root set of the core relevant results
-
         let root_set = match_set.drain().map(|(_, v)| v);
         let mut root_set: Vec<_> = if query.phrases.is_empty() {
             root_set.collect()
@@ -617,29 +663,69 @@ impl FTSIndex {
                 .collect()
         };
 
-        if !use_hits {
-            root_set.sort_unstable_by(|a, b| {
-                a.relevancy_score.partial_cmp(&b.relevancy_score).unwrap()
-            });
-            root_set.truncate(MAX_MATCHES);
-            return root_set;
-        }
-
         // Expand our root set's neighbors to create a base set: the set of all
         // relevant pages, as well as pages that link TO or are linked FROM those pages.
         let root_ids: Vec<DocID> = root_set.iter().map(|m| m._id).collect();
-        let mut base_set: HashMap<DocID, SearchMatch> = HashMap::new();
+        let mut match_set = MatchSet::new();
         for search_match in root_set.drain(..) {
-            base_set.insert(search_match._id, search_match);
+            match_set.insert(search_match, self);
         }
 
-        for &doc_id in &root_ids {
-            self.get_neighbors(&mut base_set, doc_id);
-        }
-
-        let base_set: Vec<_> = base_set.drain().map(|(_, v)| v).collect();
+        match_set.finish(&root_ids);
 
         // Run HITS to re-sort our results based on authority
-        hits(base_set, 0.00001, 200)
+        match_set.hits(0.00001, 200)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fts() {
+        let mut index = FTSIndex::new(vec![Field::new("text", 1.0), Field::new("title", 10.0)]);
+
+        index.add(
+            Document {
+                _id: 0,
+                url: "https://en.wikipedia.org/wiki/Fox".to_owned(),
+                links: vec!["https://en.wikipedia.org/wiki/Red_fox".to_owned()],
+                weight: 1.0,
+                data: hashmap![
+                "text".to_owned() => r#"Foxes are small-to-medium-sized, omnivorous mammals belonging to several genera of the family Canidae. Foxes have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail (or brush)."#.to_owned(),
+                "title".to_owned() => "Fox".to_owned(),
+            ],
+            },
+            |_doc| (),
+        );
+
+        index.add(
+            Document {
+                _id: 1,
+                url: "https://en.wikipedia.org/wiki/Red_fox".to_owned(),
+                links: vec![],
+                weight: 1.0,
+                data: hashmap![
+                "text".to_owned() => r#"The red fox (Vulpes vulpes), largest of the true foxes, has the greatest geographic range of all members of the Carnivora order, being present across the entire Northern Hemisphere from the Arctic Circle to North Africa, North America and Eurasia. It is listed as least concern by the IUCN.[1] Its range has increased alongside human expansion, having been introduced to Australia, where it is considered harmful to native mammals and bird populations. Due to its presence in Australia, it is included among the list of the "world's 100 worst invasive species"."#.to_owned(),
+                "title".to_owned() => "Red fox".to_owned(),
+            ],
+            },
+            |_doc| (),
+        );
+
+        // index.add(Document {
+        //     _id: 2,
+        //     url: "Omnivore".to_owned(),
+        //     links: vec![],
+        //     weight: 1.0,
+        //     data: hashmap![
+        //         "text".to_owned() => r#"Omnivore /ˈɒmnivɔər/ is a consumption classification for animals that have the capability to obtain chemical energy and nutrients from materials originating from plant and animal origin. Often, omnivores also have the ability to incorporate food sources such as algae, fungi, and bacteria into their diet as well."#.to_owned(),
+        //         "title".to_owned() => "Omnivore".to_owned(),
+        //     ],
+        // }, |_doc| ());
+
+        index.finish();
+        index.search(Query::new("fox carnivora"));
     }
 }
