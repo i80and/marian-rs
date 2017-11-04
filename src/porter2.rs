@@ -703,7 +703,6 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn r_step_1a(&mut self) -> bool {
-        println!("r_step_1a    {}", &*self.current);
         // (, line 58
         // try, line 59
         let v_1 = self.limit - self.cursor;
@@ -813,13 +812,12 @@ impl<'a> StemmerContext<'a> {
                     return false;
                 }
             }
-            _ => unreachable!(),
+            _ => (),
         }
         true
     }
 
     fn r_step_1b(&mut self) -> bool {
-        println!("r_step_1b    {}", &*self.current);
         // (, line 74
         // [, line 75
         self.ket = self.cursor;
@@ -931,7 +929,6 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn r_step_1c(&mut self) -> bool {
-        println!("r_step_1c    {}", &*self.current);
         // (, line 93
         // [, line 94
         self.ket = self.cursor;
@@ -982,7 +979,6 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn r_step_2(&mut self) -> bool {
-        println!("r_step_2     {}", &*self.current);
         // (, line 99
         // [, line 100
         self.ket = self.cursor;
@@ -1126,7 +1122,6 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn r_step_3(&mut self) -> bool {
-        println!("r_step_3     {}", &*self.current);
         // (, line 126
         // [, line 127
         self.ket = self.cursor;
@@ -1195,7 +1190,6 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn r_step_4(&mut self) -> bool {
-        println!("r_step_4    {}", &*self.current);
         // (, line 140
         // [, line 141
         self.ket = self.cursor;
@@ -1252,7 +1246,6 @@ impl<'a> StemmerContext<'a> {
     }
 
     fn r_step_5(&mut self) -> bool {
-        println!("r_step_5     {}", &*self.current);
         // (, line 149
         // [, line 150
         self.ket = self.cursor;
@@ -1437,7 +1430,7 @@ impl<'a> StemmerContext<'a> {
                     return false;
                 }
             }
-            _ => unreachable!(),
+            _ => (),
         }
         true
     }
