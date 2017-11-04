@@ -35,5 +35,5 @@ fn main() {
 
     fts.finish();
 
-    fts.search(query::Query::new(""), true);
+    fts.search(query::Query::new(""));
 }
