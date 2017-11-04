@@ -203,21 +203,37 @@ mod tests {
 
     #[test]
     fn test_split_on_whitespace() {
-        assert_eq!(tokenize("The qUick \tbrown\n\n\t fox.", false), vec!["the", "quick", "brown", "fox"]);
+        assert_eq!(
+            tokenize("The qUick \tbrown\n\n\t fox.", false),
+            vec!["the", "quick", "brown", "fox"]
+        );
     }
 
     #[test]
     fn test_tokenize_code() {
         assert_eq!(
-            tokenize("db.scores.find(\n   { results: { $elemMatch: { $gte: 80, $lt: 85 } } }\n)", false),
-            vec!["db.scores.find", "results", "$elemmatch", "$gte", "80", "$lt", "85"]);
+            tokenize(
+                "db.scores.find(\n   { results: { $elemMatch: { $gte: 80, $lt: 85 } } }\n)",
+                false
+            ),
+            vec![
+                "db.scores.find",
+                "results",
+                "$elemmatch",
+                "$gte",
+                "80",
+                "$lt",
+                "85",
+            ]
+        );
     }
 
     #[test]
     fn test_atomic_phrases() {
         assert_eq!(
             tokenize("ops manager configuration", false),
-            vec!["ops manager", "configuration"]);
+            vec!["ops manager", "configuration"]
+        );
         assert_eq!(stem("ops manager"), "ops manager");
     }
 
@@ -228,7 +244,9 @@ mod tests {
         for raw_line in buffered_reader.lines() {
             let raw_line = raw_line.unwrap();
             let trimmed = raw_line.trim();
-            if trimmed.is_empty() { continue; }
+            if trimmed.is_empty() {
+                continue;
+            }
 
             let parts: Vec<_> = trimmed.split_whitespace().take(2).collect();
             let word = &parts[0];
