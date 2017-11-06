@@ -11,6 +11,7 @@ extern crate qp_trie;
 extern crate regex;
 #[macro_use]
 extern crate serde_json;
+extern crate smallvec;
 extern crate unicase;
 
 mod fts;

@@ -1,6 +1,7 @@
 #![allow(unknown_lints, clippy)]
 
 use std::cmp;
+use smallvec::SmallVec;
 
 struct Among {
     s: &'static str,
@@ -198,7 +199,7 @@ pub struct StemmerContext {
     i_p2: i32,
     i_p1: i32,
 
-    current: Vec<char>,
+    current: SmallVec<[char; 16]>,
     cursor: i32,
     limit: i32,
     limit_backward: i32,
@@ -208,7 +209,7 @@ pub struct StemmerContext {
 
 impl StemmerContext {
     pub fn new(value: &str) -> Self {
-        let current: Vec<_> = value.chars().collect();
+        let current: SmallVec<_> = value.chars().collect();
         let len = current.len() as i32;
         let mut ctx = Self {
             stemmer: &STEMMER,
@@ -1677,10 +1678,10 @@ impl StemmerContext {
         let new_current = {
             let part1 = &self.current[0..c_bra as usize];
             let part3 = &self.current[c_ket as usize..];
-            let mut new_current = Vec::with_capacity(part1.len() + s.len() + part3.len());
-            new_current.extend(part1);
-            new_current.extend(s);
-            new_current.extend(part3);
+            let mut new_current = SmallVec::<[char; 16]>::new();
+            new_current.extend_from_slice(part1);
+            new_current.extend_from_slice(s);
+            new_current.extend_from_slice(part3);
 
             new_current
         };
