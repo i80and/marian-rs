@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::time::SystemTime;
 use std::{cmp, iter};
 use query::Query;
 use trie::Trie;
@@ -387,7 +388,7 @@ pub struct FTSIndex {
 
     word_correlations: HashMap<String, Vec<(String, f32)>>,
 
-    dirty: bool,
+    finished: Option<SystemTime>,
 }
 
 impl FTSIndex {
@@ -410,7 +411,7 @@ impl FTSIndex {
 
             word_correlations: HashMap::new(),
 
-            dirty: true,
+            finished: None,
         }
     }
 
@@ -458,7 +459,8 @@ impl FTSIndex {
     where
         F: Fn(&str),
     {
-        self.dirty = true;
+        self.finished = None;
+
         let doc_id = self.doc_id;
         self.doc_id += 1;
         document.url = normalize_url(&document.url).to_owned();
@@ -544,6 +546,10 @@ impl FTSIndex {
         });
     }
 
+    pub fn finished_time(&self) -> SystemTime {
+        self.finished.expect("Must call FTSIndex::finish()")
+    }
+
     pub fn finish(&mut self) {
         self.outgoing_neighbors.clear();
         self.incoming_neighbors.clear();
@@ -578,7 +584,7 @@ impl FTSIndex {
             self.incoming_neighbors.insert(doc_id, incoming_neighbors);
         }
 
-        self.dirty = false;
+        self.finished = Some(SystemTime::now());
     }
 
     fn collect_matches_from_trie<'a, I>(&self, terms: I) -> Vec<(DocID, Vec<&str>)>
@@ -596,7 +602,7 @@ impl FTSIndex {
     }
 
     pub fn search(&self, query: Query) -> Vec<&Document> {
-        if self.dirty {
+        if self.finished.is_none() {
             panic!("Must call FTSIndex::finish()")
         }
 
@@ -720,8 +726,7 @@ mod tests {
         let mut index = FTSIndex::new(vec![Field::new("text", 1.0), Field::new("title", 10.0)]);
 
         index.add(
-            Document {
-                _id: 0,
+            DocumentBuilder {
                 url: "https://en.wikipedia.org/wiki/Fox".to_owned(),
                 links: vec!["https://en.wikipedia.org/wiki/Red_fox".to_owned()],
                 weight: 1.0,
@@ -734,8 +739,7 @@ mod tests {
         );
 
         index.add(
-            Document {
-                _id: 1,
+            DocumentBuilder {
                 url: "https://en.wikipedia.org/wiki/Red_fox".to_owned(),
                 links: vec![],
                 weight: 1.0,
@@ -759,6 +763,6 @@ mod tests {
         // }, |_doc| ());
 
         index.finish();
-        index.search(Query::new("fox carnivora"));
+        index.search(Query::new("fox carnivora", ""));
     }
 }

@@ -1,10 +1,12 @@
 extern crate futures;
+extern crate futures_cpupool;
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate maplit;
 extern crate mime;
+extern crate num_cpus;
 extern crate qp_trie;
 extern crate regex;
 #[macro_use]
@@ -19,16 +21,16 @@ mod trie;
 
 use std::mem;
 use std::collections::HashMap;
-use std::sync::RwLock;
-use std::time::SystemTime;
+use std::sync::{Arc, RwLock};
 use futures::future::Future;
+use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
 use hyper::server::{Http, Request, Response, Service};
 use hyper::{Method, StatusCode};
 use regex::Regex;
 use unicase::Ascii;
-use query::Query;
 use fts::{DocumentBuilder, FTSIndex};
+use query::Query;
 
 const MAXIMUM_QUERY_LENGTH: usize = 100;
 
@@ -58,73 +60,71 @@ fn default_fields() -> Vec<fts::Field> {
     ]
 }
 
+fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
+    let query = match request.query() {
+        Some(fq) => fq,
+        None => {
+            return Response::new().with_status(StatusCode::BadRequest);
+        }
+    };
+
+    if query.len() > MAXIMUM_QUERY_LENGTH {
+        return Response::new().with_status(StatusCode::BadRequest);
+    }
+
+    let query = parse_query(query);
+
+    let search_query = match query.get("q") {
+        Some(s) => s,
+        None => {
+            return Response::new().with_status(StatusCode::BadRequest);
+        }
+    };
+
+    let search_properties = query.get("searchProperties").unwrap_or(&"");
+
+    let txn = index.read().unwrap();
+    let response = Response::new()
+        .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
+        .with_header(header::ContentType(mime::APPLICATION_JSON))
+        .with_header(header::Vary::Items(
+            vec![Ascii::new("Accept-Encoding".to_owned())],
+        ))
+        .with_header(header::CacheControl(vec![
+            header::CacheDirective::Public,
+            header::CacheDirective::MaxAge(120),
+            header::CacheDirective::MustRevalidate,
+        ]))
+        .with_header(header::AccessControlAllowOrigin::Any);
+
+    let parsed_query = Query::new(search_query, search_properties);
+
+    let results: Vec<serde_json::Value> = txn.search(parsed_query)
+        .iter()
+        .map(|doc| {
+            json![{
+                    "title": doc.title(),
+                    "preview": doc.preview(),
+                    "url": &doc.url
+                }]
+        })
+        .collect();
+
+    let serialized = serde_json::to_string(&results).unwrap();
+    response.with_body(serialized)
+}
+
 struct MarianService {
-    index: RwLock<FTSIndex>,
-    last_update: SystemTime,
+    index: Arc<RwLock<FTSIndex>>,
+    workers: CpuPool,
 }
 
 impl MarianService {
     fn new() -> Self {
         Self {
-            index: RwLock::new(FTSIndex::new(default_fields())),
-            last_update: SystemTime::now(),
+            index: Arc::new(RwLock::new(FTSIndex::new(default_fields()))),
+            workers: CpuPool::new(num_cpus::get()),
         }
-    }
-
-    fn search(&self, request: &Request) -> Response {
-        let query = match request.query() {
-            Some(fq) => fq,
-            None => {
-                return Response::new().with_status(StatusCode::BadRequest);
-            }
-        };
-
-        if query.len() > MAXIMUM_QUERY_LENGTH {
-            return Response::new().with_status(StatusCode::BadRequest);
-        }
-
-        let query = parse_query(query);
-
-        let search_query = match query.get("q") {
-            Some(s) => s,
-            None => {
-                return Response::new().with_status(StatusCode::BadRequest);
-            }
-        };
-
-        let search_properties = query.get("searchProperties").unwrap_or(&"");
-
-        let response = Response::new()
-            .with_header(header::LastModified(HttpDate::from(self.last_update)))
-            .with_header(header::ContentType(mime::APPLICATION_JSON))
-            .with_header(header::Vary::Items(
-                vec![Ascii::new("Accept-Encoding".to_owned())],
-            ))
-            .with_header(header::CacheControl(vec![
-                header::CacheDirective::Public,
-                header::CacheDirective::MaxAge(120),
-                header::CacheDirective::MustRevalidate,
-            ]))
-            .with_header(header::AccessControlAllowOrigin::Any);
-
-        let parsed_query = Query::new(search_query, search_properties);
-
-        let results: Vec<serde_json::Value> = {
-            let txn = self.index.read().unwrap();
-            txn.search(parsed_query)
-                .iter()
-                .map(|doc| {
-                    json![{
-                        "title": doc.title(),
-                        "preview": doc.preview(),
-                        "url": &doc.url
-                    }]
-                })
-                .collect()
-        };
-
-        let serialized = serde_json::to_string(&results).unwrap();
-        response.with_body(serialized)
     }
 
     fn status(&self) -> Response {
@@ -159,7 +159,12 @@ impl Service for MarianService {
 
     fn call(&self, req: Request) -> Self::Future {
         let response = match (req.method(), req.path()) {
-            (&Method::Get, "/search") => self.search(&req),
+            (&Method::Get, "/search") => {
+                let index = Arc::clone(&self.index);
+                return Box::new(self.workers.spawn_fn(move || {
+                    Box::new(futures::future::ok(handle_search(&index, &req)))
+                }));
+            }
             (_, "/search") => Response::new().with_status(StatusCode::MethodNotAllowed),
             (&Method::Get, "/status") => self.status(),
             (_, "/status") => Response::new().with_status(StatusCode::MethodNotAllowed),
