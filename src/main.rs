@@ -114,6 +114,19 @@ fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
     response.with_body(serialized)
 }
 
+fn handle_refresh(index: &Arc<RwLock<FTSIndex>>) -> Response {
+    let mut new_index = FTSIndex::new(default_fields());
+    new_index.add(
+        DocumentBuilder::new("https://foxquill.com".to_owned()),
+        |_token| (),
+    );
+    new_index.finish();
+
+    let mut txn = index.write().unwrap();
+    mem::replace(&mut *txn, new_index);
+    Response::new()
+}
+
 struct MarianService {
     index: Arc<RwLock<FTSIndex>>,
     workers: CpuPool,
@@ -136,19 +149,6 @@ impl MarianService {
             ))
             .with_body(serialized)
     }
-
-    fn refresh(&self) -> Response {
-        let mut new_index = FTSIndex::new(default_fields());
-        new_index.add(
-            DocumentBuilder::new("https://foxquill.com".to_owned()),
-            |_token| (),
-        );
-        new_index.finish();
-
-        let mut txn = self.index.write().unwrap();
-        mem::replace(&mut *txn, new_index);
-        Response::new()
-    }
 }
 
 impl Service for MarianService {
@@ -165,11 +165,16 @@ impl Service for MarianService {
                     Box::new(futures::future::ok(handle_search(&index, &req)))
                 }));
             }
-            (_, "/search") => Response::new().with_status(StatusCode::MethodNotAllowed),
             (&Method::Get, "/status") => self.status(),
-            (_, "/status") => Response::new().with_status(StatusCode::MethodNotAllowed),
-            (&Method::Post, "/refresh") => self.refresh(),
-            (_, "/refresh") => Response::new().with_status(StatusCode::MethodNotAllowed),
+            (&Method::Post, "/refresh") => {
+                let index = Arc::clone(&self.index);
+                return Box::new(self.workers.spawn_fn(move || {
+                    Box::new(futures::future::ok(handle_refresh(&index)))
+                }));
+            }
+            (_, "/search") | (_, "/status") | (_, "/refresh") => {
+                Response::new().with_status(StatusCode::MethodNotAllowed)
+            }
             _ => Response::new().with_status(StatusCode::NotFound),
         };
 

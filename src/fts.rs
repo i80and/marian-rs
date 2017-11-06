@@ -1,3 +1,5 @@
+#![allow(unknown_lints, doc_markdown)]
+
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 use std::{cmp, iter};
