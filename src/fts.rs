@@ -107,8 +107,7 @@ impl DocumentEntry {
     }
 }
 
-#[derive(Debug)]
-pub struct SearchMatch {
+struct SearchMatch {
     _id: DocID,
     relevancy_score: f32,
     terms: HashSet<String>,
@@ -176,12 +175,39 @@ impl Field {
     }
 }
 
-pub struct Document {
-    pub _id: DocID,
+pub struct DocumentBuilder {
     pub url: String,
     pub links: Vec<String>,
     pub weight: f32,
     pub data: HashMap<String, String>,
+}
+
+impl DocumentBuilder {
+    pub fn new(url: String) -> Self {
+        Self {
+            url,
+            links: vec![],
+            weight: 1.0,
+            data: hashmap![],
+        }
+    }
+}
+
+pub struct Document {
+    pub _id: DocID,
+    pub url: String,
+    pub weight: f32,
+    pub data: HashMap<String, String>,
+}
+
+impl Document {
+    pub fn title(&self) -> &str {
+        &self.data["title"]
+    }
+
+    pub fn preview(&self) -> &str {
+        &self.data["preview"]
+    }
 }
 
 struct MatchSet {
@@ -349,8 +375,8 @@ pub struct FTSIndex {
     terms: HashMap<String, TermEntry>,
     doc_id: DocID,
     term_id: u32,
-    document_weights: HashMap<DocID, f32>,
 
+    documents: Vec<Document>,
     link_graph: HashMap<String, Vec<String>>,
     inverse_link_graph: HashMap<String, Vec<String>>,
     url_to_id: HashMap<String, DocID>,
@@ -372,8 +398,8 @@ impl FTSIndex {
             terms: HashMap::new(),
             doc_id: 0,
             term_id: 0,
-            document_weights: HashMap::new(),
 
+            documents: vec![],
             link_graph: HashMap::new(),
             inverse_link_graph: HashMap::new(),
             url_to_id: HashMap::new(),
@@ -428,12 +454,13 @@ impl FTSIndex {
         stemmed_terms
     }
 
-    pub fn add<F>(&mut self, mut document: Document, on_token: F) -> DocID
+    pub fn add<F>(&mut self, mut document: DocumentBuilder, on_token: F)
     where
         F: Fn(&str),
     {
         self.dirty = true;
-        document._id = self.doc_id;
+        let doc_id = self.doc_id;
+        self.doc_id += 1;
         document.url = normalize_url(&document.url).to_owned();
 
         for href in &document.links {
@@ -446,8 +473,8 @@ impl FTSIndex {
 
         self.link_graph
             .insert(document.url.to_owned(), document.links);
-        self.url_to_id.insert(document.url.to_owned(), document._id);
-        self.id_to_url.insert(document._id, document.url);
+        self.url_to_id.insert(document.url.to_owned(), doc_id);
+        self.id_to_url.insert(doc_id, document.url.to_owned());
 
         let mut correlations: Vec<(String, u8, f32)> = vec![];
 
@@ -488,11 +515,11 @@ impl FTSIndex {
                 term_frequencies.insert(token.to_owned(), count + 1);
 
                 if count == 0 {
-                    self.trie.insert(&token, document._id);
-                    index_entry.register(field.name.to_owned(), document._id);
+                    self.trie.insert(&token, doc_id);
+                    index_entry.register(field.name.to_owned(), doc_id);
                 }
 
-                index_entry.add_token_position(document._id, self.term_id);
+                index_entry.add_token_position(doc_id, self.term_id);
             }
 
             // After each field, bump by one to prevent accidental adjacency.
@@ -500,7 +527,7 @@ impl FTSIndex {
 
             field.total_tokens += number_of_tokens;
             field.documents.insert(
-                document._id,
+                doc_id,
                 DocumentEntry::new(number_of_tokens, term_frequencies),
             );
         }
@@ -509,10 +536,12 @@ impl FTSIndex {
             self.correlate_word(&token, &token[prefix_size as usize..], closeness);
         }
 
-        self.document_weights.insert(document._id, document.weight);
-        self.doc_id += 1;
-
-        document._id
+        self.documents.push(Document {
+            _id: doc_id,
+            url: document.url,
+            weight: document.weight,
+            data: document.data,
+        });
     }
 
     pub fn finish(&mut self) {
@@ -566,7 +595,7 @@ impl FTSIndex {
         result_set
     }
 
-    pub fn search(&self, query: Query) -> Vec<SearchMatch> {
+    pub fn search(&self, query: Query) -> Vec<&Document> {
         if self.dirty {
             panic!("Must call FTSIndex::finish()")
         }
@@ -626,7 +655,7 @@ impl FTSIndex {
                         original_terms.len() as u32,
                     ) * field.weight
                         * field.length_weight
-                        * self.document_weights[&doc_id];
+                        * self.documents[doc_id as usize].weight;
                 }
 
                 let search_match = match_set
@@ -674,7 +703,11 @@ impl FTSIndex {
         match_set.finish(&root_ids);
 
         // Run HITS to re-sort our results based on authority
-        match_set.hits(0.00001, 200)
+        match_set
+            .hits(0.00001, 200)
+            .iter()
+            .map(|search_match| &self.documents[search_match._id as usize])
+            .collect()
     }
 }
 

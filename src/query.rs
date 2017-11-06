@@ -48,18 +48,21 @@ fn have_contiguous_keywords(
     have_contiguous_path(&path, None)
 }
 
-pub struct Query {
+pub struct Query<'a> {
     pub terms: HashSet<String>,
     pub phrases: Vec<String>,
     pub stemmed_phrases: Vec<Vec<String>>,
+
+    search_properties: HashSet<&'a str>,
 }
 
-impl Query {
-    pub fn new(query_string: &str) -> Self {
+impl<'a> Query<'a> {
+    pub fn new(query_string: &str, search_properties: &'a str) -> Self {
         let mut query = Self {
             terms: HashSet::new(),
             phrases: vec![],
             stemmed_phrases: vec![],
+            search_properties: hashset![],
         };
 
         let mut phrase: Option<String> = None;
@@ -97,6 +100,10 @@ impl Query {
 
         if let Some(phrase) = phrase {
             query.add_phrase(phrase);
+        }
+
+        for search_property in search_properties.split(',') {
+            query.search_properties.insert(search_property);
         }
 
         query
