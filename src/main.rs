@@ -1,3 +1,4 @@
+extern crate brotli2;
 extern crate futures;
 extern crate futures_cpupool;
 extern crate hyper;
@@ -20,9 +21,11 @@ mod query;
 mod stemmer;
 mod trie;
 
-use std::mem;
 use std::collections::HashMap;
+use std::io::Read;
+use std::mem;
 use std::sync::{Arc, RwLock};
+use brotli2::read::BrotliEncoder;
 use futures::future::Future;
 use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
@@ -39,6 +42,33 @@ const MAXIMUM_QUERY_LENGTH: usize = 100;
 lazy_static! {
     static ref PAT_QUERY_STRING: Regex = Regex::new(r#"([:alnum:]+)=([^&]*)"#)
         .expect("Failed to compile query string regex");
+}
+
+/// Find an acceptable compression format for the client, and return a compressed
+/// version of the content if possible. Otherwise return the original input text.
+fn compress(response: Response, req: &Request, content: String) -> Response {
+    let accept_encodings = match req.headers().get::<header::AcceptEncoding>() {
+        Some(h) => h,
+        None => return response.with_body(content),
+    };
+
+    for quality_item in accept_encodings.iter() {
+        if quality_item.quality == header::q(0) {
+            continue;
+        }
+
+        if quality_item.item == header::Encoding::Brotli {
+            let mut compressed = Vec::with_capacity(content.len());
+            let mut encoder = BrotliEncoder::new(content.as_bytes(), 6);
+            if encoder.read_to_end(&mut compressed).is_err() {
+                return response.with_status(StatusCode::InternalServerError);
+            }
+            let response = response.with_header(header::ContentEncoding(vec![header::Encoding::Brotli]));
+            return response.with_body(compressed);
+        }
+    }
+
+    response.with_body(content)
 }
 
 fn parse_query(queryst: &str) -> HashMap<&str, &str> {
@@ -112,7 +142,7 @@ fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
         .collect();
 
     let serialized = serde_json::to_string(&results).unwrap();
-    response.with_body(serialized)
+    compress(response, request, serialized)
 }
 
 fn handle_refresh(index: &Arc<RwLock<FTSIndex>>) -> Response {
