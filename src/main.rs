@@ -26,10 +26,10 @@ mod fts;
 mod manifest;
 mod porter2;
 mod query;
+mod queryst;
 mod stemmer;
 mod trie;
 
-use std::collections::HashMap;
 use std::io::Read;
 use std::{env, mem, process};
 use std::sync::{Arc, RwLock};
@@ -39,19 +39,13 @@ use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
 use hyper::server::{Http, Request, Response, NewService, Service};
 use hyper::{Method, StatusCode};
-use regex::Regex;
 use unicase::Ascii;
 use fts::FTSIndex;
 use manifest::ManifestLoader;
 use query::Query;
+use queryst::parse_query;
 
 const MAXIMUM_QUERY_LENGTH: usize = 100;
-
-
-lazy_static! {
-    static ref PAT_QUERY_STRING: Regex = Regex::new(r#"([:alnum:]+)=([^&]*)"#)
-        .expect("Failed to compile query string regex");
-}
 
 /// Find an acceptable compression format for the client, and return a compressed
 /// version of the content if possible. Otherwise return the original input text.
@@ -80,18 +74,6 @@ fn compress(response: Response, req: &Request, content: String) -> Response {
     response.with_body(content)
 }
 
-fn parse_query(queryst: &str) -> HashMap<&str, &str> {
-    let mut result = HashMap::new();
-    for group in PAT_QUERY_STRING.captures_iter(queryst) {
-        let key = group.get(1).unwrap().as_str();
-        let value = group.get(2).unwrap().as_str();
-
-        result.insert(key, value);
-    }
-
-    result
-}
-
 fn default_fields() -> Vec<fts::Field> {
     vec![
         fts::Field::new("text", 1.0),
@@ -114,7 +96,6 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
     }
 
     let query = parse_query(query);
-
     let search_query = match query.get("q") {
         Some(s) => s,
         None => {
@@ -122,15 +103,7 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         }
     };
 
-    // let search_properties: Vec<_> = raw_search_properties.split(',').map(|property| {
-    //     match txn.search_property_aliases.get(property) {
-    //         Some(p) => p,
-    //         None => property
-    //     }
-    // }).collect();
-
     let search_properties: Vec<_> = query.get("searchProperties").unwrap_or(&"").split(',').collect();
-
     let txn = marian.index.read().unwrap();
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
@@ -147,7 +120,7 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
 
     let parsed_query = Query::new(search_query, &search_properties);
 
-    let results: Vec<serde_json::Value> = txn.search(parsed_query)
+    let results: Vec<serde_json::Value> = txn.search(&parsed_query)
         .iter()
         .map(|doc| {
             json![{

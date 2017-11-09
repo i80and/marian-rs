@@ -587,7 +587,7 @@ impl FTSIndex {
         result_set
     }
 
-    pub fn search(&self, query: Query) -> Vec<&Document> {
+    pub fn search(&self, query: &Query) -> Vec<&Document> {
         if self.finished.is_none() {
             panic!("Must call FTSIndex::finish()")
         }
@@ -723,25 +723,27 @@ mod tests {
 
         index.add(
             ManifestDocument {
-                url: "https://en.wikipedia.org/wiki/Fox".to_owned(),
+                slug: "Fox".to_owned(),
+                title: "Fox".to_owned(),
+                tags: "".to_owned(),
+                headings: vec![],
                 links: vec!["https://en.wikipedia.org/wiki/Red_fox".to_owned()],
-                weight: 1.0,
-                data: hashmap![
-                "text".to_owned() => r#"Foxes are small-to-medium-sized, omnivorous mammals belonging to several genera of the family Canidae. Foxes have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail (or brush)."#.to_owned(),
-                "title".to_owned() => "Fox".to_owned(),
-            ],
-            });
+                text: r#"Foxes are small-to-medium-sized, omnivorous mammals belonging to several genera of the family Canidae. Foxes have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail (or brush)."#.to_owned(),
+                preview: "".to_owned(),
+                url: "https://en.wikipedia.org/wiki/Fox".to_owned(),
+            }, true, "property".to_owned());
 
         index.add(
             ManifestDocument {
-                url: "https://en.wikipedia.org/wiki/Red_fox".to_owned(),
+                slug: "Red_fox".to_owned(),
+                title: "Red fox".to_owned(),
+                tags: "".to_owned(),
+                headings: vec![],
                 links: vec![],
-                weight: 1.0,
-                data: hashmap![
-                "text".to_owned() => r#"The red fox (Vulpes vulpes), largest of the true foxes, has the greatest geographic range of all members of the Carnivora order, being present across the entire Northern Hemisphere from the Arctic Circle to North Africa, North America and Eurasia. It is listed as least concern by the IUCN.[1] Its range has increased alongside human expansion, having been introduced to Australia, where it is considered harmful to native mammals and bird populations. Due to its presence in Australia, it is included among the list of the "world's 100 worst invasive species"."#.to_owned(),
-                "title".to_owned() => "Red fox".to_owned(),
-            ],
-            });
+                text: r#"The red fox (Vulpes vulpes), largest of the true foxes, has the greatest geographic range of all members of the Carnivora order, being present across the entire Northern Hemisphere from the Arctic Circle to North Africa, North America and Eurasia. It is listed as least concern by the IUCN.[1] Its range has increased alongside human expansion, having been introduced to Australia, where it is considered harmful to native mammals and bird populations. Due to its presence in Australia, it is included among the list of the "world's 100 worst invasive species"."#.to_owned(),
+                preview: "".to_owned(),
+                url: "https://en.wikipedia.org/wiki/Red_fox".to_owned(),
+            }, true, "property".to_owned());
 
         // index.add(Document {
         //     _id: 2,
@@ -755,6 +757,6 @@ mod tests {
         // }, |_doc| ());
 
         index.finish();
-        index.search(Query::new("fox carnivora", ""));
+        index.search(&Query::new("fox carnivora", &[]));
     }
 }

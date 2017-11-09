@@ -144,22 +144,23 @@ mod tests {
 
     #[test]
     fn test_single_term() {
-        let query = Query::new("foo", "");
+        let query = Query::new("foo", &[]);
         assert_eq!(query.terms, hashset!["foo".to_owned()]);
+        assert_eq!(query.search_properties, &[] as &[&str]);
         assert_eq!(query.phrases, Vec::<String>::new());
     }
 
     #[test]
     fn test_whitespace() {
         // it should delimit terms with any standard whitespace characters
-        let query = Query::new("foo   \t  bar", "");
+        let query = Query::new("foo   \t  bar", &[]);
         assert_eq!(query.terms, hashset!["foo".to_owned(), "bar".to_owned()]);
         assert_eq!(query.phrases, Vec::<String>::new());
     }
 
     #[test]
     fn test_multi_word_phrases() {
-        let query = Query::new("foo \"one phrase\" bar \"second phrase\"", "");
+        let query = Query::new("foo \"one phrase\" bar \"second phrase\"", &[]);
         assert_eq!(
             query.terms,
             hashset![
@@ -178,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_adjacent_phrases() {
-        let query = Query::new("\"introduce the\" \"officially supported\"", "");
+        let query = Query::new("\"introduce the\" \"officially supported\"", &[]);
         assert_eq!(
             query.terms,
             hashset![
@@ -206,7 +207,7 @@ mod tests {
     #[test]
     fn test_phrase_fragment() {
         // it should handle a phrase fragment as a single phrase
-        let query = Query::new("\"officially supported", "");
+        let query = Query::new("\"officially supported", &[]);
         assert_eq!(
             query.terms,
             hashset!["officially".to_owned(), "supported".to_owned()]
@@ -217,7 +218,7 @@ mod tests {
     #[test]
     fn test_check_phrases() {
         // it should match phrases with adjacent words
-        let query = Query::new("\"Quoth the raven\"", "");
+        let query = Query::new("\"Quoth the raven\"", &[]);
         let s1 = "quoth".to_owned();
         let s2 = "raven".to_owned();
         let v1 = vec![0, 5];
@@ -229,7 +230,7 @@ mod tests {
     #[test]
     fn test_check_phrases_negative() {
         // it should refuse phrases without adjacent words
-        let query = Query::new("\"foo bar\" \"Quoth the raven\"", "");
+        let query = Query::new("\"foo bar\" \"Quoth the raven\"", &[]);
         let s1 = "quoth".to_owned();
         let s2 = "raven".to_owned();
         let s3 = "foo".to_owned();
