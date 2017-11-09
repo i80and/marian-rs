@@ -5,17 +5,25 @@ extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate maplit;
 extern crate mime;
 extern crate num_cpus;
 extern crate qp_trie;
 extern crate regex;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate simple_logger;
 extern crate smallvec;
 extern crate unicase;
+extern crate walkdir;
 
 mod fts;
+mod manifest;
 mod porter2;
 mod query;
 mod stemmer;
@@ -23,17 +31,18 @@ mod trie;
 
 use std::collections::HashMap;
 use std::io::Read;
-use std::mem;
+use std::{env, mem, process};
 use std::sync::{Arc, RwLock};
 use brotli2::read::BrotliEncoder;
 use futures::future::Future;
 use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
-use hyper::server::{Http, Request, Response, Service};
+use hyper::server::{Http, Request, Response, NewService, Service};
 use hyper::{Method, StatusCode};
 use regex::Regex;
 use unicase::Ascii;
-use fts::{DocumentBuilder, FTSIndex};
+use fts::FTSIndex;
+use manifest::ManifestLoader;
 use query::Query;
 
 const MAXIMUM_QUERY_LENGTH: usize = 100;
@@ -74,8 +83,9 @@ fn compress(response: Response, req: &Request, content: String) -> Response {
 fn parse_query(queryst: &str) -> HashMap<&str, &str> {
     let mut result = HashMap::new();
     for group in PAT_QUERY_STRING.captures_iter(queryst) {
-        let key = group.get(1).map_or("", |m| m.as_str());
-        let value = group.get(2).map_or("", |m| m.as_str());
+        let key = group.get(1).unwrap().as_str();
+        let value = group.get(2).unwrap().as_str();
+
         result.insert(key, value);
     }
 
@@ -91,7 +101,7 @@ fn default_fields() -> Vec<fts::Field> {
     ]
 }
 
-fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
+fn handle_search(marian: &Marian, request: &Request) -> Response {
     let query = match request.query() {
         Some(fq) => fq,
         None => {
@@ -112,9 +122,16 @@ fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
         }
     };
 
-    let search_properties = query.get("searchProperties").unwrap_or(&"");
+    // let search_properties: Vec<_> = raw_search_properties.split(',').map(|property| {
+    //     match txn.search_property_aliases.get(property) {
+    //         Some(p) => p,
+    //         None => property
+    //     }
+    // }).collect();
 
-    let txn = index.read().unwrap();
+    let search_properties: Vec<_> = query.get("searchProperties").unwrap_or(&"").split(',').collect();
+
+    let txn = marian.index.read().unwrap();
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
         .with_header(header::ContentType(mime::APPLICATION_JSON))
@@ -128,14 +145,14 @@ fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
         ]))
         .with_header(header::AccessControlAllowOrigin::Any);
 
-    let parsed_query = Query::new(search_query, search_properties);
+    let parsed_query = Query::new(search_query, &search_properties);
 
     let results: Vec<serde_json::Value> = txn.search(parsed_query)
         .iter()
         .map(|doc| {
             json![{
-                    "title": doc.title(),
-                    "preview": doc.preview(),
+                    "title": doc.title,
+                    "preview": doc.preview,
                     "url": &doc.url
                 }]
         })
@@ -145,32 +162,80 @@ fn handle_search(index: &Arc<RwLock<FTSIndex>>, request: &Request) -> Response {
     compress(response, request, serialized)
 }
 
-fn handle_refresh(index: &Arc<RwLock<FTSIndex>>) -> Response {
+fn handle_refresh(manifest_loader: &ManifestLoader, index: &RwLock<FTSIndex>) -> Result<(), String> {
+    let mut manifests = manifest_loader.load()?;
     let mut new_index = FTSIndex::new(default_fields());
-    new_index.add(
-        DocumentBuilder::new("https://foxquill.com".to_owned()),
-        |_token| (),
-    );
+
+    for manifest in &mut manifests {
+        while manifest.body.url.ends_with('/') {
+            manifest.body.url.pop();
+        }
+
+        for alias in manifest.body.aliases.drain(..) {
+            new_index.alias_search_property(alias.to_owned(), manifest.search_property.to_owned());
+        }
+
+        let include_in_global_search = manifest.body.include_in_global_search;
+        let search_property = manifest.search_property.to_owned();
+
+        for mut doc in manifest.body.documents.drain(..) {
+            while doc.slug.ends_with('/') {
+                doc.slug.pop();
+            }
+            doc.url = format!("{}/{}", manifest.body.url, doc.slug);
+            new_index.add(doc, include_in_global_search, search_property.to_owned());
+        }
+    }
+
     new_index.finish();
 
     let mut txn = index.write().unwrap();
     mem::replace(&mut *txn, new_index);
-    Response::new()
+    Ok(())
+}
+
+struct Marian {
+    index: RwLock<FTSIndex>,
+    workers: CpuPool,
+    manifest_loader: Box<ManifestLoader>,
+}
+
+impl Marian {
+    fn new(manifest_loader: Box<ManifestLoader>) -> Result<Self, String> {
+        let service = Self {
+            index: RwLock::new(FTSIndex::new(default_fields())),
+            workers: CpuPool::new(num_cpus::get()),
+            manifest_loader,
+        };
+
+        handle_refresh(&*service.manifest_loader, &service.index)?;
+
+        Ok(service)
+    }
+}
+
+struct MarianServiceFactory {
+    marian: Arc<Marian>,
+}
+
+impl NewService for MarianServiceFactory {
+    type Request = Request;
+    type Response = Response;
+    type Error = hyper::Error;
+    type Instance = MarianService;
+
+    fn new_service(&self) -> Result<Self::Instance, std::io::Error> {
+        Ok(MarianService {
+            ctx: Arc::clone(&self.marian),
+        })
+    }
 }
 
 struct MarianService {
-    index: Arc<RwLock<FTSIndex>>,
-    workers: CpuPool,
+    ctx: Arc<Marian>
 }
 
 impl MarianService {
-    fn new() -> Self {
-        Self {
-            index: Arc::new(RwLock::new(FTSIndex::new(default_fields()))),
-            workers: CpuPool::new(num_cpus::get()),
-        }
-    }
-
     fn status(&self) -> Response {
         let serialized = serde_json::to_string(&json![{}]).unwrap();
         Response::new()
@@ -191,16 +256,23 @@ impl Service for MarianService {
     fn call(&self, req: Request) -> Self::Future {
         let response = match (req.method(), req.path()) {
             (&Method::Get, "/search") => {
-                let index = Arc::clone(&self.index);
-                return Box::new(self.workers.spawn_fn(move || {
-                    Box::new(futures::future::ok(handle_search(&index, &req)))
+                let marian = Arc::clone(&self.ctx);
+                return Box::new(self.ctx.workers.spawn_fn(move || {
+                    Box::new(futures::future::ok(handle_search(&marian, &req)))
                 }));
             }
             (&Method::Get, "/status") => self.status(),
             (&Method::Post, "/refresh") => {
-                let index = Arc::clone(&self.index);
-                return Box::new(self.workers.spawn_fn(move || {
-                    Box::new(futures::future::ok(handle_refresh(&index)))
+                let marian = Arc::clone(&self.ctx);
+                return Box::new(self.ctx.workers.spawn_fn(move || {
+                    let response = match handle_refresh(marian.manifest_loader.as_ref(), &marian.index) {
+                        Ok(_) => Response::new(),
+                        Err(msg) => {
+                            error!("Error loading manifests: {}", msg);
+                            Response::new().with_status(StatusCode::InternalServerError)
+                        }
+                    };
+                    Box::new(futures::future::ok(response))
                 }));
             }
             (_, "/search") | (_, "/status") | (_, "/refresh") => {
@@ -213,11 +285,42 @@ impl Service for MarianService {
     }
 }
 
+fn usage(exit_code: i32) -> ! {
+    eprintln!("Usage: marian-rust <dir|bucket>:<...>");
+    process::exit(exit_code);
+}
 
 fn main() {
-    let addr = "127.0.0.1:3000".parse().unwrap();
-    let server = Http::new()
-        .bind(&addr, || Ok(MarianService::new()))
-        .unwrap();
+    simple_logger::init_with_level(log::LogLevel::Info).unwrap();
+
+    let manifest_source = match env::args().nth(1) {
+        Some(s) => s,
+        None => usage(1),
+    };
+
+    let manifest_source = match manifest::parse_manifest_source(&manifest_source) {
+        Ok(s) => s,
+        Err(msg) => {
+            error!("{}", msg);
+            usage(1)
+        }
+    };
+
+    let marian = match Marian::new(manifest_source) {
+        Ok(m) => m,
+        Err(msg) => {
+            error!("{}", msg);
+            process::exit(1)
+        }
+    };
+
+    let factory = MarianServiceFactory {
+        marian: Arc::new(marian),
+    };
+
+    let interface = "127.0.0.1:3000";
+    info!("Listening on {}", interface);
+    let addr = interface.parse().unwrap();
+    let server = Http::new().bind(&addr, factory).unwrap();
     server.run().unwrap();
 }

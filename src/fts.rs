@@ -2,10 +2,11 @@
 
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
-use std::{cmp, iter};
+use std::{cmp, iter, mem};
+use manifest::ManifestDocument;
 use query::Query;
-use trie::Trie;
 use stemmer::{is_stop_word, stem, tokenize};
+use trie::Trie;
 
 const MAX_MATCHES: usize = 150;
 
@@ -178,39 +179,16 @@ impl Field {
     }
 }
 
-pub struct DocumentBuilder {
-    pub url: String,
-    pub links: Vec<String>,
-    pub weight: f32,
-    pub data: HashMap<String, String>,
-}
-
-impl DocumentBuilder {
-    pub fn new(url: String) -> Self {
-        Self {
-            url,
-            links: vec![],
-            weight: 1.0,
-            data: hashmap![],
-        }
-    }
-}
-
 pub struct Document {
     pub _id: DocID,
     pub url: String,
-    pub weight: f32,
-    pub data: HashMap<String, String>,
-}
 
-impl Document {
-    pub fn title(&self) -> &str {
-        &self.data["title"]
-    }
+    pub title: String,
+    pub text: String,
+    pub preview: String,
 
-    pub fn preview(&self) -> &str {
-        &self.data["preview"]
-    }
+    pub include_in_global_search: bool,
+    pub search_property: String,
 }
 
 struct MatchSet {
@@ -389,6 +367,7 @@ pub struct FTSIndex {
     outgoing_neighbors: HashMap<DocID, Vec<DocID>>,
 
     word_correlations: HashMap<String, Vec<(String, f32)>>,
+    search_property_aliases: HashMap<String, String>,
 
     finished: Option<SystemTime>,
 }
@@ -412,6 +391,7 @@ impl FTSIndex {
             outgoing_neighbors: hashmap![],
 
             word_correlations: HashMap::new(),
+            search_property_aliases: HashMap::new(),
 
             finished: None,
         }
@@ -425,6 +405,10 @@ impl FTSIndex {
 
         let correlation_entry = self.word_correlations.entry(word).or_insert_with(|| vec![]);
         correlation_entry.push((synonym, closeness));
+    }
+
+    pub fn alias_search_property(&mut self, alias: String, search_property: String) {
+        self.search_property_aliases.insert(alias, search_property);
     }
 
     fn collect_correlations(&self, terms: &[&String]) -> HashMap<String, f32> {
@@ -457,10 +441,7 @@ impl FTSIndex {
         stemmed_terms
     }
 
-    pub fn add<F>(&mut self, mut document: DocumentBuilder, on_token: F)
-    where
-        F: Fn(&str),
-    {
+    pub fn add(&mut self, mut document: ManifestDocument, include_in_global_search: bool, search_property: String) {
         self.finished = None;
 
         let doc_id = self.doc_id;
@@ -476,7 +457,7 @@ impl FTSIndex {
         }
 
         self.link_graph
-            .insert(document.url.to_owned(), document.links);
+            .insert(document.url.to_owned(), mem::replace(&mut document.links, vec![]));
         self.url_to_id.insert(document.url.to_owned(), doc_id);
         self.id_to_url.insert(doc_id, document.url.to_owned());
 
@@ -485,7 +466,7 @@ impl FTSIndex {
         for field in &mut self.fields {
             let mut term_frequencies = HashMap::new();
 
-            let text = match document.data.get(&field.name) {
+            let text = match document.get(&field.name) {
                 Some(t) => t,
                 None => continue,
             };
@@ -494,8 +475,6 @@ impl FTSIndex {
             let mut number_of_tokens = 0;
 
             for token in &tokens {
-                on_token(token);
-
                 if is_stop_word(token) {
                     continue;
                 }
@@ -543,8 +522,13 @@ impl FTSIndex {
         self.documents.push(Document {
             _id: doc_id,
             url: document.url,
-            weight: document.weight,
-            data: document.data,
+
+            title: document.title,
+            text: document.text,
+            preview: document.preview,
+
+            include_in_global_search,
+            search_property,
         });
     }
 
@@ -608,6 +592,13 @@ impl FTSIndex {
             panic!("Must call FTSIndex::finish()")
         }
 
+        let search_properties: HashSet<&str> = query.search_properties.iter().map(|property| {
+            match self.search_property_aliases.get(*property) {
+                Some(p) => p,
+                None => *property
+            }
+        }).collect();
+
         let mut match_set: HashMap<DocID, SearchMatch> = HashMap::new();
         let original_terms: HashSet<_> = query.terms.iter().collect();
         let original_terms: Vec<_> = original_terms.into_iter().collect();
@@ -632,9 +623,14 @@ impl FTSIndex {
 
         let mut keys = stemmed_terms.keys();
         for (doc_id, ref terms) in self.collect_matches_from_trie(&mut keys) {
-            if !query.filter(doc_id) {
+            let doc = &self.documents[doc_id as usize];
+            if search_properties.is_empty() {
+                if !doc.include_in_global_search {
+                    continue;
+                }
+            } else if !search_properties.contains::<str>(&doc.search_property) {
                 continue;
-            }
+            };
 
             for &term in terms {
                 let term_entry = &self.terms[term];
@@ -661,9 +657,7 @@ impl FTSIndex {
                         term_probability,
                         doc_entry.len,
                         original_terms.len() as u32,
-                    ) * field.weight
-                        * field.length_weight
-                        * self.documents[doc_id as usize].weight;
+                    ) * field.weight * field.length_weight;
                 }
 
                 let search_match = match_set
@@ -728,7 +722,7 @@ mod tests {
         let mut index = FTSIndex::new(vec![Field::new("text", 1.0), Field::new("title", 10.0)]);
 
         index.add(
-            DocumentBuilder {
+            ManifestDocument {
                 url: "https://en.wikipedia.org/wiki/Fox".to_owned(),
                 links: vec!["https://en.wikipedia.org/wiki/Red_fox".to_owned()],
                 weight: 1.0,
@@ -736,12 +730,10 @@ mod tests {
                 "text".to_owned() => r#"Foxes are small-to-medium-sized, omnivorous mammals belonging to several genera of the family Canidae. Foxes have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail (or brush)."#.to_owned(),
                 "title".to_owned() => "Fox".to_owned(),
             ],
-            },
-            |_doc| (),
-        );
+            });
 
         index.add(
-            DocumentBuilder {
+            ManifestDocument {
                 url: "https://en.wikipedia.org/wiki/Red_fox".to_owned(),
                 links: vec![],
                 weight: 1.0,
@@ -749,9 +741,7 @@ mod tests {
                 "text".to_owned() => r#"The red fox (Vulpes vulpes), largest of the true foxes, has the greatest geographic range of all members of the Carnivora order, being present across the entire Northern Hemisphere from the Arctic Circle to North Africa, North America and Eurasia. It is listed as least concern by the IUCN.[1] Its range has increased alongside human expansion, having been introduced to Australia, where it is considered harmful to native mammals and bird populations. Due to its presence in Australia, it is included among the list of the "world's 100 worst invasive species"."#.to_owned(),
                 "title".to_owned() => "Red fox".to_owned(),
             ],
-            },
-            |_doc| (),
-        );
+            });
 
         // index.add(Document {
         //     _id: 2,

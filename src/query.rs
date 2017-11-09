@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use regex::Regex;
-use fts::DocID;
 use stemmer::{is_stop_word, stem, tokenize};
 
 lazy_static! {
@@ -52,17 +51,16 @@ pub struct Query<'a> {
     pub terms: HashSet<String>,
     pub phrases: Vec<String>,
     pub stemmed_phrases: Vec<Vec<String>>,
-
-    search_properties: HashSet<&'a str>,
+    pub search_properties: &'a [&'a str],
 }
 
 impl<'a> Query<'a> {
-    pub fn new(query_string: &str, search_properties: &'a str) -> Self {
+    pub fn new(query_string: &str, search_properties: &'a [&str]) -> Self {
         let mut query = Self {
             terms: HashSet::new(),
             phrases: vec![],
             stemmed_phrases: vec![],
-            search_properties: hashset![],
+            search_properties: search_properties,
         };
 
         let mut phrase: Option<String> = None;
@@ -102,10 +100,6 @@ impl<'a> Query<'a> {
             query.add_phrase(phrase);
         }
 
-        for search_property in search_properties.split(',') {
-            query.search_properties.insert(search_property);
-        }
-
         query
     }
 
@@ -118,10 +112,6 @@ impl<'a> Query<'a> {
             }
         }
 
-        true
-    }
-
-    pub fn filter(&self, _doc_id: DocID) -> bool {
         true
     }
 
