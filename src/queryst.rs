@@ -28,6 +28,7 @@ mod tests {
             parse_query("q=foo&,searchProperty=baz"),
             hashmap![
                 "q" => "foo",
-                "searchProperty" => "baz"]);
+                "searchProperty" => "baz"]
+        );
     }
 }

@@ -14,8 +14,7 @@ pub struct ManifestDocument {
     pub preview: String,
     pub links: Vec<String>,
 
-    #[serde(skip)]
-    pub url: String,
+    #[serde(skip)] pub url: String,
 }
 
 impl ManifestDocument {
@@ -31,11 +30,9 @@ impl ManifestDocument {
 
 #[derive(Deserialize)]
 pub struct ManifestData {
-    #[serde(rename = "includeInGlobalSearch")]
-    pub include_in_global_search: bool,
+    #[serde(rename = "includeInGlobalSearch")] pub include_in_global_search: bool,
 
-    #[serde(default)]
-    pub aliases: Vec<String>,
+    #[serde(default)] pub aliases: Vec<String>,
 
     pub documents: Vec<ManifestDocument>,
     pub url: String,
@@ -57,9 +54,7 @@ pub struct FileManifestLoader {
 
 impl FileManifestLoader {
     pub fn new<S: Into<PathBuf>>(path: S) -> Self {
-        Self {
-            path: path.into()
-        }
+        Self { path: path.into() }
     }
 }
 
@@ -68,20 +63,46 @@ impl ManifestLoader for FileManifestLoader {
         let mut manifests = vec![];
 
         for entry in WalkDir::new(&self.path) {
-            let entry = entry.or_else(|_| Err(format!("Error scanning input directory: {}", &self.path.display())))?;
-            let metadata = entry.metadata().or_else(|_| Err(format!("Failed to get metadata of manifest: {}", &entry.path().display())))?;
+            let entry = entry.or_else(|_| {
+                Err(format!(
+                    "Error scanning input directory: {}",
+                    &self.path.display()
+                ))
+            })?;
+            let metadata = entry.metadata().or_else(|_| {
+                Err(format!(
+                    "Failed to get metadata of manifest: {}",
+                    &entry.path().display()
+                ))
+            })?;
             if !metadata.is_file() {
                 continue;
             }
 
-            let mtime = metadata.modified().or_else(|_| Err(format!("Failed to get mtime of file: {}", &entry.path().display())))?;
-            let mut file = File::open(&entry.path()).or_else(|_| Err(format!("Failed to open manifest file: {}", &entry.path().display())))?;
-            let body = serde_json::from_reader(file).or_else(|msg| Err(format!("Failed to parse manifest file: {}\n{}", &entry.path().display(), msg)))?;
+            let mtime = metadata.modified().or_else(|_| {
+                Err(format!(
+                    "Failed to get mtime of file: {}",
+                    &entry.path().display()
+                ))
+            })?;
+            let mut file = File::open(&entry.path()).or_else(|_| {
+                Err(format!(
+                    "Failed to open manifest file: {}",
+                    &entry.path().display()
+                ))
+            })?;
+            let body = serde_json::from_reader(file).or_else(|msg| {
+                Err(format!(
+                    "Failed to parse manifest file: {}\n{}",
+                    &entry.path().display(),
+                    msg
+                ))
+            })?;
 
             manifests.push(Manifest {
                 body: body,
                 last_modified: mtime,
-                search_property: String::new()
+                search_property: String::new(),
             });
         }
 
@@ -96,7 +117,7 @@ pub struct S3ManifestLoader {
 impl S3ManifestLoader {
     pub fn new<S: Into<String>>(bucket: S) -> Self {
         Self {
-            bucket: bucket.into()
+            bucket: bucket.into(),
         }
     }
 }

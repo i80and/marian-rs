@@ -441,7 +441,12 @@ impl FTSIndex {
         stemmed_terms
     }
 
-    pub fn add(&mut self, mut document: ManifestDocument, include_in_global_search: bool, search_property: String) {
+    pub fn add(
+        &mut self,
+        mut document: ManifestDocument,
+        include_in_global_search: bool,
+        search_property: String,
+    ) {
         self.finished = None;
 
         let doc_id = self.doc_id;
@@ -456,8 +461,10 @@ impl FTSIndex {
             incoming_links.push(document.url.to_owned());
         }
 
-        self.link_graph
-            .insert(document.url.to_owned(), mem::replace(&mut document.links, vec![]));
+        self.link_graph.insert(
+            document.url.to_owned(),
+            mem::replace(&mut document.links, vec![]),
+        );
         self.url_to_id.insert(document.url.to_owned(), doc_id);
         self.id_to_url.insert(doc_id, document.url.to_owned());
 
@@ -592,12 +599,16 @@ impl FTSIndex {
             panic!("Must call FTSIndex::finish()")
         }
 
-        let search_properties: HashSet<&str> = query.search_properties.iter().map(|property| {
-            match self.search_property_aliases.get(*property) {
-                Some(p) => p,
-                None => *property
-            }
-        }).collect();
+        let search_properties: HashSet<&str> = query
+            .search_properties
+            .iter()
+            .map(|property| {
+                match self.search_property_aliases.get(*property) {
+                    Some(p) => p,
+                    None => *property,
+                }
+            })
+            .collect();
 
         let mut match_set: HashMap<DocID, SearchMatch> = HashMap::new();
         let original_terms: HashSet<_> = query.terms.iter().collect();
@@ -657,7 +668,8 @@ impl FTSIndex {
                         term_probability,
                         doc_entry.len,
                         original_terms.len() as u32,
-                    ) * field.weight * field.length_weight;
+                    ) * field.weight
+                        * field.length_weight;
                 }
 
                 let search_match = match_set

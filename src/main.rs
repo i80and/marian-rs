@@ -37,7 +37,7 @@ use brotli2::read::BrotliEncoder;
 use futures::future::Future;
 use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
-use hyper::server::{Http, Request, Response, NewService, Service};
+use hyper::server::{Http, NewService, Request, Response, Service};
 use hyper::{Method, StatusCode};
 use unicase::Ascii;
 use fts::FTSIndex;
@@ -66,7 +66,8 @@ fn compress(response: Response, req: &Request, content: String) -> Response {
             if encoder.read_to_end(&mut compressed).is_err() {
                 return response.with_status(StatusCode::InternalServerError);
             }
-            let response = response.with_header(header::ContentEncoding(vec![header::Encoding::Brotli]));
+            let response =
+                response.with_header(header::ContentEncoding(vec![header::Encoding::Brotli]));
             return response.with_body(compressed);
         }
     }
@@ -103,7 +104,11 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         }
     };
 
-    let search_properties: Vec<_> = query.get("searchProperties").unwrap_or(&"").split(',').collect();
+    let search_properties: Vec<_> = query
+        .get("searchProperties")
+        .unwrap_or(&"")
+        .split(',')
+        .collect();
     let txn = marian.index.read().unwrap();
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
@@ -135,7 +140,10 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
     compress(response, request, serialized)
 }
 
-fn handle_refresh(manifest_loader: &ManifestLoader, index: &RwLock<FTSIndex>) -> Result<(), String> {
+fn handle_refresh(
+    manifest_loader: &ManifestLoader,
+    index: &RwLock<FTSIndex>,
+) -> Result<(), String> {
     let mut manifests = manifest_loader.load()?;
     let mut new_index = FTSIndex::new(default_fields());
 
@@ -205,7 +213,7 @@ impl NewService for MarianServiceFactory {
 }
 
 struct MarianService {
-    ctx: Arc<Marian>
+    ctx: Arc<Marian>,
 }
 
 impl MarianService {
@@ -238,13 +246,14 @@ impl Service for MarianService {
             (&Method::Post, "/refresh") => {
                 let marian = Arc::clone(&self.ctx);
                 return Box::new(self.ctx.workers.spawn_fn(move || {
-                    let response = match handle_refresh(marian.manifest_loader.as_ref(), &marian.index) {
-                        Ok(_) => Response::new(),
-                        Err(msg) => {
-                            error!("Error loading manifests: {}", msg);
-                            Response::new().with_status(StatusCode::InternalServerError)
-                        }
-                    };
+                    let response =
+                        match handle_refresh(marian.manifest_loader.as_ref(), &marian.index) {
+                            Ok(_) => Response::new(),
+                            Err(msg) => {
+                                error!("Error loading manifests: {}", msg);
+                                Response::new().with_status(StatusCode::InternalServerError)
+                            }
+                        };
                     Box::new(futures::future::ok(response))
                 }));
             }
