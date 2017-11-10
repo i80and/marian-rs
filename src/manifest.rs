@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fs::File;
+use std::io::prelude::*;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use serde_json;
@@ -93,7 +94,14 @@ impl ManifestLoader for FileManifestLoader {
                     &entry.path().display()
                 ))
             })?;
-            let body = serde_json::from_reader(file).or_else(|msg| {
+            let mut body_string = String::with_capacity(metadata.len() as usize);
+            file.read_to_string(&mut body_string).or_else(|_| {
+                Err(format!(
+                    "Failed to read manifest file: {}",
+                    &entry.path().display(),
+                ))
+            })?;
+            let body = serde_json::from_str(&body_string).or_else(|msg| {
                 Err(format!(
                     "Failed to parse manifest file: {}\n{}",
                     &entry.path().display(),
