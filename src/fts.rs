@@ -384,7 +384,7 @@ impl MatchSet {
             }
         }
 
-        matches.sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
+        matches.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         matches.truncate(MAX_MATCHES);
         matches
     }

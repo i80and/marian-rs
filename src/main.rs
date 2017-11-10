@@ -10,6 +10,7 @@ extern crate log;
 extern crate maplit;
 extern crate mime;
 extern crate num_cpus;
+extern crate percent_encoding;
 extern crate qp_trie;
 extern crate regex;
 extern crate serde;
@@ -39,6 +40,7 @@ use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
 use hyper::server::{Http, NewService, Request, Response, Service};
 use hyper::{Method, StatusCode};
+use percent_encoding::percent_decode;
 use unicase::Ascii;
 use fts::FTSIndex;
 use manifest::ManifestLoader;
@@ -92,11 +94,18 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         }
     };
 
+    let query = match percent_decode(query.as_bytes()).decode_utf8() {
+        Ok(q) => q,
+        Err(_) => {
+            return Response::new().with_status(StatusCode::BadRequest);
+        }
+    };
+
     if query.len() > MAXIMUM_QUERY_LENGTH {
         return Response::new().with_status(StatusCode::BadRequest);
     }
 
-    let query = parse_query(query);
+    let query = parse_query(query.as_ref());
     let search_query = match query.get("q") {
         Some(s) => s,
         None => {
