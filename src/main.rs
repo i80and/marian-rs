@@ -145,6 +145,8 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         })
         .collect();
 
+    let results = json![{ "results": results }];
+
     let serialized = serde_json::to_string(&results).unwrap();
     compress(response, request, serialized)
 }
