@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs::File;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -18,11 +19,12 @@ pub struct ManifestDocument {
 }
 
 impl ManifestDocument {
-    pub fn get(&self, key: &str) -> Option<&str> {
+    pub fn get(&self, key: &str) -> Option<Cow<str>> {
         match key {
-            "title" => Some(&self.title),
-            "text" => Some(&self.text),
-            "tags" => Some(&self.tags),
+            "title" => Some(Cow::Borrowed(&self.title)),
+            "text" => Some(Cow::Borrowed(&self.text)),
+            "headings" => Some(Cow::Owned(self.headings.join(" "))),
+            "tags" => Some(Cow::Borrowed(&self.tags)),
             _ => None,
         }
     }

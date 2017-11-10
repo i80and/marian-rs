@@ -1,5 +1,6 @@
 #![allow(unknown_lints, doc_markdown)]
 
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 use std::{cmp, iter, mem};
@@ -518,7 +519,7 @@ impl FTSIndex {
                 None => continue,
             };
 
-            let tokens = tokenize(text, true);
+            let tokens = tokenize(text.borrow(), true);
             let mut number_of_tokens = 0;
 
             for token in &tokens {
