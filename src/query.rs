@@ -123,7 +123,7 @@ impl<'a> Query<'a> {
         let parts: Vec<_> = tokenize(&phrase, false)
             .iter()
             .filter(|term| !is_stop_word(term))
-            .map(|term| stem(term).to_owned())
+            .map(|term| stem(term))
             .collect();
         self.stemmed_phrases.push(parts);
         self.phrases.push(phrase);
