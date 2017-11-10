@@ -10,7 +10,33 @@ use trie::Trie;
 
 const MAX_MATCHES: usize = 150;
 
-pub type DocID = u32;
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+pub struct DocID(pub u32);
+
+impl DocID {
+    fn inc(self) -> Self {
+        DocID(self.0 + 1)
+    }
+
+    fn usize(self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub struct MatchID(u32);
+
+impl MatchID {
+    fn inc(self) -> Self {
+        MatchID(self.0 + 1)
+    }
+
+    fn usize(self) -> usize {
+        self.0 as usize
+    }
+}
+
+
 type TokenID = u32;
 
 /// Normalize URLs by chopping off trailing index.html components.
@@ -117,8 +143,8 @@ struct SearchMatch {
     terms: HashSet<String>,
 
     score: f32,
-    incoming_neighbors: Vec<DocID>,
-    outgoing_neighbors: Vec<DocID>,
+    incoming_neighbors: Vec<MatchID>,
+    outgoing_neighbors: Vec<MatchID>,
 }
 
 impl SearchMatch {
@@ -193,7 +219,7 @@ pub struct Document {
 
 struct MatchSet {
     matches: Vec<SearchMatch>,
-    doc_id_to_match_id: HashMap<DocID, u32>,
+    doc_id_to_match_id: HashMap<DocID, MatchID>,
 }
 
 impl MatchSet {
@@ -205,39 +231,53 @@ impl MatchSet {
     }
 
     fn insert(&mut self, mut search_match: SearchMatch, fts: &FTSIndex) {
-        let match_id = self.matches.len() as u32;
         let doc_id = search_match._id;
+        let mut match_id_counter = MatchID(self.matches.len() as u32);
+        let match_id = MatchID(self.matches.len() as u32);
+        match_id_counter = match_id_counter.inc();
+        let mut new_matches = vec![];
 
-        if let Some(v) = fts.incoming_neighbors.get(&doc_id) {
-            search_match.incoming_neighbors.extend(v.iter().cloned());
+        if let Some(doc_ids) = fts.incoming_neighbors.get(&doc_id) {
+            let iterator = doc_ids.iter().map(|&doc_id| {
+                let neighbor_match_id = match_id_counter;
+                *self.doc_id_to_match_id.entry(doc_id).or_insert_with(|| {
+                    match_id_counter = match_id_counter.inc();
+                    new_matches.push(SearchMatch::new(doc_id));
+                    neighbor_match_id
+                })
+            });
+            search_match.incoming_neighbors.extend(iterator);
         }
 
-        if let Some(v) = fts.outgoing_neighbors.get(&doc_id) {
-            search_match.outgoing_neighbors.extend(v.iter().cloned());
+        if let Some(doc_ids) = fts.outgoing_neighbors.get(&doc_id) {
+            let iterator = doc_ids.iter().map(|&doc_id| {
+                *self.doc_id_to_match_id.entry(doc_id).or_insert_with(|| {
+                    let neighbor_match_id = match_id_counter;
+                    match_id_counter = match_id_counter.inc();
+                    new_matches.push(SearchMatch::new(doc_id));
+                    neighbor_match_id
+                })
+            });
+            search_match.outgoing_neighbors.extend(iterator);
         }
 
+        self.matches.extend(new_matches.drain(..));
         self.matches.push(search_match);
         self.doc_id_to_match_id.insert(doc_id, match_id);
     }
 
     fn get_neighbors(&mut self, doc_id: DocID) {
         let match_id = self.doc_id_to_match_id[&doc_id];
-        let search_match = &mut self.matches[match_id as usize];
+        let search_match: &mut SearchMatch = &mut self.matches[match_id.usize()];
 
-        let mut incoming_neighbors = vec![];
-        let mut outgoing_neighbors = vec![];
+        let mut incoming_neighbors: Vec<MatchID> = vec![];
+        let mut outgoing_neighbors: Vec<MatchID> = vec![];
 
         for &neighbor_id in &search_match.incoming_neighbors {
-            // base_set
-            //     .entry(neighbor_id)
-            //     .or_insert_with(|| SearchMatch::new(neighbor_id));
             incoming_neighbors.push(neighbor_id);
         }
 
         for &neighbor_id in &search_match.outgoing_neighbors {
-            // base_set
-            //     .entry(neighbor_id)
-            //     .or_insert_with(|| SearchMatch::new(neighbor_id));
             outgoing_neighbors.push(neighbor_id);
         }
 
@@ -268,7 +308,7 @@ impl MatchSet {
             for (match_id, search_match) in self.matches.iter().enumerate() {
                 authority_scores[match_id] = 0.0;
                 for &incoming_match_id in &search_match.incoming_neighbors {
-                    authority_scores[match_id] += hub_scores[incoming_match_id as usize];
+                    authority_scores[match_id] += hub_scores[incoming_match_id.usize()];
                 }
                 authority_norm += authority_scores[match_id].powf(2.0);
             }
@@ -284,7 +324,7 @@ impl MatchSet {
             for (match_id, mut search_match) in self.matches.iter().enumerate() {
                 hub_scores[match_id] = 0.0;
                 for &outgoing_match_id in &search_match.outgoing_neighbors {
-                    hub_scores[match_id] += authority_scores[outgoing_match_id as usize];
+                    hub_scores[match_id] += authority_scores[outgoing_match_id.usize()];
                 }
                 hub_norm += hub_scores[match_id].powf(2.0);
             }
@@ -378,7 +418,7 @@ impl FTSIndex {
             fields,
             trie: Trie::new(),
             terms: HashMap::new(),
-            doc_id: 0,
+            doc_id: DocID(0),
             term_id: 0,
 
             documents: vec![],
@@ -450,7 +490,7 @@ impl FTSIndex {
         self.finished = None;
 
         let doc_id = self.doc_id;
-        self.doc_id += 1;
+        self.doc_id = self.doc_id.inc();
         document.url = normalize_url(&document.url).to_owned();
 
         for href in &document.links {
@@ -634,7 +674,7 @@ impl FTSIndex {
 
         let mut keys = stemmed_terms.keys();
         for (doc_id, ref terms) in self.collect_matches_from_trie(&mut keys) {
-            let doc = &self.documents[doc_id as usize];
+            let doc: &Document = &self.documents[doc_id.usize()];
             if search_properties.is_empty() {
                 if !doc.include_in_global_search {
                     continue;
@@ -720,7 +760,7 @@ impl FTSIndex {
         match_set
             .hits(0.00001, 200)
             .iter()
-            .map(|search_match| &self.documents[search_match._id as usize])
+            .map(|search_match| &self.documents[search_match._id.usize()])
             .collect()
     }
 }

@@ -43,23 +43,23 @@ mod tests {
         // Should be idempotent
         let mut trie = Trie::new();
 
-        trie.insert("foobar", 0);
-        trie.insert("foobar", 0);
+        trie.insert("foobar", DocID(0));
+        trie.insert("foobar", DocID(0));
 
-        assert_eq!(trie.search("foobar"), hashmap![0 => vec!["foobar"]]);
+        assert_eq!(trie.search("foobar"), hashmap![DocID(0) => vec!["foobar"]]);
     }
 
     #[test]
     fn test_additive() {
         let mut trie = Trie::new();
-        trie.insert("foobar", 0);
-        trie.insert("foobar", 1);
+        trie.insert("foobar", DocID(0));
+        trie.insert("foobar", DocID(1));
 
         assert_eq!(
             trie.search("foobar"),
             hashmap![
-            0 => vec!["foobar"],
-            1 => vec!["foobar"],
+            DocID(0) => vec!["foobar"],
+            DocID(1) => vec!["foobar"],
         ]
         );
     }
@@ -67,15 +67,15 @@ mod tests {
     #[test]
     fn test_prefix() {
         let mut trie = Trie::new();
-        trie.insert("foobar", 0);
-        trie.insert("foobar", 1);
-        trie.insert("foobaz", 0);
+        trie.insert("foobar", DocID(0));
+        trie.insert("foobar", DocID(1));
+        trie.insert("foobaz", DocID(0));
 
         assert_eq!(
             trie.search("foo"),
             hashmap![
-                0 => vec!["foobar", "foobaz"],
-                1 => vec!["foobar"]]
+                DocID(0) => vec!["foobar", "foobaz"],
+                DocID(1) => vec!["foobar"]]
         );
     }
 }
