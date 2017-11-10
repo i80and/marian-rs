@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use regex::Regex;
 use porter2::StemmerContext;
@@ -141,6 +142,8 @@ lazy_static! {
         .collect();
 }
 
+thread_local!(static STEM_CACHE: RefCell<Option<HashMap<String, String>>> = RefCell::new(None));
+
 pub fn is_stop_word(word: &str) -> bool {
     STOP_WORDS.contains(word)
 }
@@ -150,7 +153,19 @@ pub fn stem(word: &str) -> String {
         return word.to_owned();
     }
 
-    StemmerContext::new(word).get().to_owned()
+    STEM_CACHE.with(|cache_cell| {
+        let mut borrowed = cache_cell.borrow_mut();
+        let cache = borrowed.get_or_insert_with(HashMap::new);
+
+        if let Some(stemmed) = cache.get(word) {
+            return stemmed.to_owned();
+        }
+
+        let stemmed = StemmerContext::new(word).get().to_owned();
+        cache.insert(word.to_owned(), stemmed.to_owned());
+
+        stemmed
+    })
 }
 
 pub fn tokenize(text: &str, fuzzy: bool) -> Vec<String> {
