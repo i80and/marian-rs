@@ -211,7 +211,6 @@ pub struct Document {
     pub url: String,
 
     pub title: String,
-    pub text: String,
     pub preview: String,
 
     pub include_in_global_search: bool,
@@ -572,7 +571,6 @@ impl FTSIndex {
             url: document.url,
 
             title: document.title,
-            text: document.text,
             preview: document.preview,
 
             include_in_global_search,
