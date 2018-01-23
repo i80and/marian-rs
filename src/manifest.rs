@@ -16,7 +16,8 @@ pub struct ManifestDocument {
     pub preview: String,
     pub links: Vec<String>,
 
-    #[serde(skip)] pub url: String,
+    #[serde(skip)]
+    pub url: String,
 }
 
 impl ManifestDocument {
@@ -33,9 +34,11 @@ impl ManifestDocument {
 
 #[derive(Deserialize)]
 pub struct ManifestData {
-    #[serde(rename = "includeInGlobalSearch")] pub include_in_global_search: bool,
+    #[serde(rename = "includeInGlobalSearch")]
+    pub include_in_global_search: bool,
 
-    #[serde(default)] pub aliases: Vec<String>,
+    #[serde(default)]
+    pub aliases: Vec<String>,
 
     pub documents: Vec<ManifestDocument>,
     pub url: String,

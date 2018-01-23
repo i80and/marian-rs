@@ -37,7 +37,6 @@ impl MatchID {
     }
 }
 
-
 type TokenID = u32;
 
 /// Normalize URLs by chopping off trailing index.html components.
@@ -641,12 +640,12 @@ impl FTSIndex {
         let search_properties: HashSet<&str> = query
             .search_properties
             .iter()
-            .map(|property| {
-                match self.search_property_aliases.get(*property) {
+            .map(
+                |property| match self.search_property_aliases.get(*property) {
                     Some(p) => p,
                     None => *property,
-                }
-            })
+                },
+            )
             .collect();
 
         let mut match_set: HashMap<DocID, SearchMatch> = HashMap::new();

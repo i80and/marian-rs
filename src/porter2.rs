@@ -1674,7 +1674,6 @@ impl StemmerContext {
     fn replace_s(&mut self, c_bra: i32, c_ket: i32, s: &[char]) -> i32 {
         let adjustment = s.len() as i32 - (c_ket - c_bra);
 
-
         let new_current = {
             let part1 = &self.current[0..c_bra as usize];
             let part3 = &self.current[c_ket as usize..];

@@ -18,7 +18,7 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
-extern crate simple_logger;
+extern crate simple_logging;
 extern crate smallvec;
 extern crate unicase;
 extern crate walkdir;
@@ -122,9 +122,9 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
         .with_header(header::ContentType(mime::APPLICATION_JSON))
-        .with_header(header::Vary::Items(
-            vec![Ascii::new("Accept-Encoding".to_owned())],
-        ))
+        .with_header(header::Vary::Items(vec![
+            Ascii::new("Accept-Encoding".to_owned()),
+        ]))
         .with_header(header::CacheControl(vec![
             header::CacheDirective::Public,
             header::CacheDirective::MaxAge(120),
@@ -232,9 +232,9 @@ impl MarianService {
         let serialized = serde_json::to_string(&json![{}]).unwrap();
         Response::new()
             .with_header(header::ContentType(mime::APPLICATION_JSON))
-            .with_header(header::Vary::Items(
-                vec![Ascii::new("Accept-Encoding".to_owned())],
-            ))
+            .with_header(header::Vary::Items(vec![
+                Ascii::new("Accept-Encoding".to_owned()),
+            ]))
             .with_body(serialized)
     }
 }
@@ -246,33 +246,34 @@ impl Service for MarianService {
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
     fn call(&self, req: Request) -> Self::Future {
-        let response = match (req.method(), req.path()) {
-            (&Method::Get, "/search") => {
-                let marian = Arc::clone(&self.ctx);
-                return Box::new(self.ctx.workers.spawn_fn(move || {
-                    Box::new(futures::future::ok(handle_search(&marian, &req)))
-                }));
-            }
-            (&Method::Get, "/status") => self.status(),
-            (&Method::Post, "/refresh") => {
-                let marian = Arc::clone(&self.ctx);
-                return Box::new(self.ctx.workers.spawn_fn(move || {
-                    let response =
-                        match handle_refresh(marian.manifest_loader.as_ref(), &marian.index) {
-                            Ok(_) => Response::new(),
-                            Err(msg) => {
-                                error!("Error loading manifests: {}", msg);
-                                Response::new().with_status(StatusCode::InternalServerError)
-                            }
-                        };
-                    Box::new(futures::future::ok(response))
-                }));
-            }
-            (_, "/search") | (_, "/status") | (_, "/refresh") => {
-                Response::new().with_status(StatusCode::MethodNotAllowed)
-            }
-            _ => Response::new().with_status(StatusCode::NotFound),
-        };
+        let response =
+            match (req.method(), req.path()) {
+                (&Method::Get, "/search") => {
+                    let marian = Arc::clone(&self.ctx);
+                    return Box::new(self.ctx.workers.spawn_fn(move || {
+                        Box::new(futures::future::ok(handle_search(&marian, &req)))
+                    }));
+                }
+                (&Method::Get, "/status") => self.status(),
+                (&Method::Post, "/refresh") => {
+                    let marian = Arc::clone(&self.ctx);
+                    return Box::new(self.ctx.workers.spawn_fn(move || {
+                        let response =
+                            match handle_refresh(marian.manifest_loader.as_ref(), &marian.index) {
+                                Ok(_) => Response::new(),
+                                Err(msg) => {
+                                    error!("Error loading manifests: {}", msg);
+                                    Response::new().with_status(StatusCode::InternalServerError)
+                                }
+                            };
+                        Box::new(futures::future::ok(response))
+                    }));
+                }
+                (_, "/search") | (_, "/status") | (_, "/refresh") => {
+                    Response::new().with_status(StatusCode::MethodNotAllowed)
+                }
+                _ => Response::new().with_status(StatusCode::NotFound),
+            };
 
         Box::new(futures::future::ok(response))
     }
@@ -284,7 +285,7 @@ fn usage(exit_code: i32) -> ! {
 }
 
 fn main() {
-    simple_logger::init_with_level(log::LogLevel::Info).unwrap();
+    simple_logging::log_to_stderr(log::LevelFilter::Info);
 
     let manifest_source = match env::args().nth(1) {
         Some(s) => s,
