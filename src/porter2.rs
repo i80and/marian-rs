@@ -164,22 +164,23 @@ impl Stemmer {
                 Among::new("bias", -1, -1),
                 Among::new("cosmos", -1, -1),
                 Among::new("dying", -1, 3),
-                Among::new("early", -1, 11),
-                Among::new("gently", -1, 9),
+                Among::new("early", -1, 12),
+                Among::new("gently", -1, 10),
                 Among::new("howe", -1, -1),
-                Among::new("idly", -1, 8),
-                Among::new("importance", -1, 7),
+                Among::new("idly", -1, 9),
+                Among::new("importance", -1, 8),
                 Among::new("important", -1, -1),
                 Among::new("lying", -1, 4),
                 Among::new("news", -1, -1),
-                Among::new("only", -1, 12),
+                Among::new("only", -1, 13),
                 Among::new("replica", -1, 6),
-                Among::new("singly", -1, 13),
+                Among::new("retryable", -1, 7),
+                Among::new("singly", -1, 14),
                 Among::new("skies", -1, 2),
                 Among::new("skis", -1, 1),
                 Among::new("sky", -1, -1),
                 Among::new("tying", -1, 5),
-                Among::new("ugly", -1, 10),
+                Among::new("ugly", -1, 11),
             ],
 
             g_v: vec![17, 65, 16, 1],
@@ -1347,46 +1348,53 @@ impl StemmerContext {
             7 => {
                 // (, line 180
                 // <-, line 180
-                if !self.slice_from(&['i', 'm', 'p', 'o', 'r', 't', 'a', 'n', 't']) {
+                if !self.slice_from(&['r', 'e', 't', 'r', 'i', 'a', 'b', 'l']) {
                     return false;
                 }
             }
             8 => {
                 // (, line 184
                 // <-, line 184
-                if !self.slice_from(&['i', 'd', 'l']) {
+                if !self.slice_from(&['i', 'm', 'p', 'o', 'r', 't', 'a', 'n', 't']) {
                     return false;
                 }
             }
             9 => {
                 // (, line 185
                 // <-, line 185
-                if !self.slice_from(&['g', 'e', 'n', 't', 'l']) {
+                if !self.slice_from(&['i', 'd', 'l']) {
                     return false;
                 }
             }
             10 => {
                 // (, line 186
                 // <-, line 186
-                if !self.slice_from(&['u', 'g', 'l', 'i']) {
+                if !self.slice_from(&['g', 'e', 'n', 't', 'l']) {
                     return false;
                 }
             }
             11 => {
                 // (, line 187
                 // <-, line 187
-                if !self.slice_from(&['e', 'a', 'r', 'l', 'i']) {
+                if !self.slice_from(&['u', 'g', 'l', 'i']) {
                     return false;
                 }
             }
             12 => {
                 // (, line 188
                 // <-, line 188
-                if !self.slice_from(&['o', 'n', 'l', 'i']) {
+                if !self.slice_from(&['e', 'a', 'r', 'l', 'i']) {
                     return false;
                 }
             }
             13 => {
+                // (, line 189
+                // <-, line 189
+                if !self.slice_from(&['o', 'n', 'l', 'i']) {
+                    return false;
+                }
+            }
+            14 => {
                 // (, line 189
                 // <-, line 189
                 if !self.slice_from(&['s', 'i', 'n', 'g', 'l']) {
