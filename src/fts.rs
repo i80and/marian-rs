@@ -10,6 +10,7 @@ use stemmer::{is_stop_word, stem, tokenize};
 use trie::Trie;
 
 const MAX_MATCHES: usize = 150;
+const LOG_4_DIVISOR: f32 = 1.0 / 2.0; // 1.0 / log2(4)
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct DocID(pub u32);
@@ -168,7 +169,7 @@ impl SearchMatch {
     ) {
         let normalized_relevancy_score = self.relevancy_score / max_relevancy_score + 1.0;
         let normalized_authority_score = authority_score / max_authority_score + 1.0;
-        self.score = normalized_relevancy_score.log2() + normalized_authority_score.log2();
+        self.score = normalized_relevancy_score.log2() + (normalized_authority_score.log2() * LOG_4_DIVISOR);
     }
 }
 
@@ -795,16 +796,16 @@ mod tests {
                 url: "https://en.wikipedia.org/wiki/Red_fox".to_owned(),
             }, true, "property".to_owned());
 
-        // index.add(Document {
-        //     _id: 2,
-        //     url: "Omnivore".to_owned(),
-        //     links: vec![],
-        //     weight: 1.0,
-        //     data: hashmap![
-        //         "text".to_owned() => r#"Omnivore /ˈɒmnivɔər/ is a consumption classification for animals that have the capability to obtain chemical energy and nutrients from materials originating from plant and animal origin. Often, omnivores also have the ability to incorporate food sources such as algae, fungi, and bacteria into their diet as well."#.to_owned(),
-        //         "title".to_owned() => "Omnivore".to_owned(),
-        //     ],
-        // }, |_doc| ());
+        index.add(ManifestDocument {
+            slug: "Omnivore".to_owned(),
+            title: "Omnivore".to_owned(),
+            tags: "".to_owned(),
+            headings: vec![],
+            links: vec![],
+            text: r#"Omnivore /ˈɒmnivɔər/ is a consumption classification for animals that have the capability to obtain chemical energy and nutrients from materials originating from plant and animal origin. Often, omnivores also have the ability to incorporate food sources such as algae, fungi, and bacteria into their diet as well."#.to_owned(),
+            preview: "".to_owned(),
+            url: "https://en.wikipedia.org/wiki/Omnivore".to_owned(),
+        }, true, "property".to_owned());
 
         index.finish();
         index.search(&Query::new("fox carnivora", &[]));
