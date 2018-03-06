@@ -313,7 +313,7 @@ fn main() {
     };
 
     let interface = "127.0.0.1:3000";
-    info!("Listening on {}", interface);
+    info!("Listening on http://{}", interface);
     let addr = interface.parse().unwrap();
     let server = Http::new().bind(&addr, factory).unwrap();
     server.run().unwrap();
