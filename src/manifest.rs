@@ -1,9 +1,9 @@
+use serde_json;
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use serde_json;
 use walkdir::WalkDir;
 
 #[derive(Deserialize)]

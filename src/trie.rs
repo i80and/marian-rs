@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
-use qp_trie;
 use fts::DocID;
+use qp_trie;
+use std::collections::{HashMap, HashSet};
 
 pub struct Trie {
     trie: qp_trie::Trie<qp_trie::wrapper::BString, HashSet<DocID>>,

@@ -31,21 +31,21 @@ mod queryst;
 mod stemmer;
 mod trie;
 
-use std::io::Read;
-use std::{env, mem, process};
-use std::sync::{Arc, RwLock};
 use brotli2::read::BrotliEncoder;
+use fts::FTSIndex;
 use futures::future::Future;
 use futures_cpupool::CpuPool;
 use hyper::header::{self, HttpDate};
 use hyper::server::{Http, NewService, Request, Response, Service};
 use hyper::{Method, StatusCode};
-use percent_encoding::percent_decode;
-use unicase::Ascii;
-use fts::FTSIndex;
 use manifest::ManifestLoader;
+use percent_encoding::percent_decode;
 use query::Query;
 use queryst::parse_query;
+use std::io::Read;
+use std::sync::{Arc, RwLock};
+use std::{env, mem, process};
+use unicase::Ascii;
 
 const MAXIMUM_QUERY_LENGTH: usize = 100;
 
@@ -122,9 +122,9 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
         .with_header(header::ContentType(mime::APPLICATION_JSON))
-        .with_header(header::Vary::Items(vec![
-            Ascii::new("Accept-Encoding".to_owned()),
-        ]))
+        .with_header(header::Vary::Items(vec![Ascii::new(
+            "Accept-Encoding".to_owned(),
+        )]))
         .with_header(header::CacheControl(vec![
             header::CacheDirective::Public,
             header::CacheDirective::MaxAge(120),
@@ -232,9 +232,9 @@ impl MarianService {
         let serialized = serde_json::to_string(&json![{}]).unwrap();
         Response::new()
             .with_header(header::ContentType(mime::APPLICATION_JSON))
-            .with_header(header::Vary::Items(vec![
-                Ascii::new("Accept-Encoding".to_owned()),
-            ]))
+            .with_header(header::Vary::Items(vec![Ascii::new(
+                "Accept-Encoding".to_owned(),
+            )]))
             .with_body(serialized)
     }
 }

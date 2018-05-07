@@ -1,11 +1,11 @@
 #![allow(unknown_lints, doc_markdown)]
 
+use manifest::ManifestDocument;
+use query::Query;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 use std::{cmp, iter, mem};
-use manifest::ManifestDocument;
-use query::Query;
 use stemmer::{is_stop_word, stem, tokenize};
 use trie::Trie;
 
@@ -169,7 +169,8 @@ impl SearchMatch {
     ) {
         let normalized_relevancy_score = self.relevancy_score / max_relevancy_score + 1.0;
         let normalized_authority_score = authority_score / max_authority_score + 1.0;
-        self.score = normalized_relevancy_score.log2() + (normalized_authority_score.log2() * LOG_4_DIVISOR);
+        self.score =
+            normalized_relevancy_score.log2() + (normalized_authority_score.log2() * LOG_4_DIVISOR);
     }
 }
 

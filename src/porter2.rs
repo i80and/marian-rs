@@ -1,7 +1,7 @@
 #![allow(unknown_lints, clippy)]
 
-use std::cmp;
 use smallvec::SmallVec;
+use std::cmp;
 
 struct Among {
     s: &'static str,

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use regex::Regex;
+use std::collections::HashMap;
 
 lazy_static! {
-    static ref PAT_QUERY_STRING: Regex = Regex::new(r#"([a-zA-Z]+)=([^&]*)"#)
-        .expect("Failed to compile query string regex");
+    static ref PAT_QUERY_STRING: Regex =
+        Regex::new(r#"([a-zA-Z]+)=([^&]*)"#).expect("Failed to compile query string regex");
 }
 
 pub fn parse_query(queryst: &str) -> HashMap<&str, &str> {

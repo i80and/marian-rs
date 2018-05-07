@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
 use regex::Regex;
+use std::collections::{HashMap, HashSet};
 use stemmer::{is_stop_word, stem, tokenize};
 
 lazy_static! {
-    static ref PAT_QUERY_PARTS: Regex = Regex::new(r#""|[^"\s]+"#)
-        .expect("Failed to compile query regex");
+    static ref PAT_QUERY_PARTS: Regex =
+        Regex::new(r#""|[^"\s]+"#).expect("Failed to compile query regex");
 }
 
 /// Return true if there is a configuration of numbers in the `tree` that
