@@ -112,10 +112,15 @@ impl ManifestLoader for FileManifestLoader {
                 ))
             })?;
 
+            let search_property = match entry.path().file_stem() {
+                Some(stem) => stem.to_string_lossy().to_string(),
+                None => String::new(),
+            };
+
             manifests.push(Manifest {
                 body: body,
                 last_modified: mtime,
-                search_property: String::new(),
+                search_property: search_property,
             });
         }
 

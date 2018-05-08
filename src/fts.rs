@@ -4,9 +4,9 @@ use manifest::ManifestDocument;
 use query::Query;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
-use std::time::SystemTime;
 use std::{cmp, iter, mem};
 use stemmer::{is_stop_word, stem, tokenize};
+use time;
 use trie::Trie;
 
 const MAX_MATCHES: usize = 150;
@@ -410,7 +410,8 @@ pub struct FTSIndex {
     word_correlations: HashMap<String, Vec<(String, f32)>>,
     search_property_aliases: HashMap<String, String>,
 
-    finished: Option<SystemTime>,
+    pub finished: time::Timespec,
+    pub manifests: HashSet<String>,
 }
 
 impl FTSIndex {
@@ -434,7 +435,8 @@ impl FTSIndex {
             word_correlations: HashMap::new(),
             search_property_aliases: HashMap::new(),
 
-            finished: None,
+            finished: time::Timespec::new(0, 0),
+            manifests: HashSet::new(),
         }
     }
 
@@ -488,8 +490,6 @@ impl FTSIndex {
         include_in_global_search: bool,
         search_property: String,
     ) {
-        self.finished = None;
-
         let doc_id = self.doc_id;
         self.doc_id = self.doc_id.inc();
         document.url = normalize_url(&document.url).to_owned();
@@ -575,12 +575,10 @@ impl FTSIndex {
             preview: document.preview,
 
             include_in_global_search,
-            search_property,
+            search_property: search_property.to_owned(),
         });
-    }
 
-    pub fn finished_time(&self) -> SystemTime {
-        self.finished.expect("Must call FTSIndex::finish()")
+        self.manifests.insert(search_property);
     }
 
     pub fn finish(&mut self) {
@@ -617,7 +615,7 @@ impl FTSIndex {
             self.incoming_neighbors.insert(doc_id, incoming_neighbors);
         }
 
-        self.finished = Some(SystemTime::now());
+        self.finished = time::get_time();
     }
 
     fn collect_matches_from_trie<'a, I>(&self, terms: I) -> Vec<(DocID, Vec<&str>)>
@@ -635,10 +633,6 @@ impl FTSIndex {
     }
 
     pub fn search(&self, query: &Query) -> Vec<&Document> {
-        if self.finished.is_none() {
-            panic!("Must call FTSIndex::finish()")
-        }
-
         let search_properties: HashSet<&str> = query
             .search_properties
             .iter()

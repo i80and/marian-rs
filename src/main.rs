@@ -20,12 +20,14 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate simple_logging;
 extern crate smallvec;
+extern crate time;
 extern crate unicase;
 extern crate walkdir;
 
 mod fts;
 mod manifest;
 mod porter2;
+mod protocol;
 mod query;
 mod queryst;
 mod stemmer;
@@ -119,8 +121,9 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         .split(',')
         .collect();
     let txn = marian.index.read().unwrap();
+    let finished_time = std::time::UNIX_EPOCH + std::time::Duration::from_secs(0);
     let response = Response::new()
-        .with_header(header::LastModified(HttpDate::from(txn.finished_time())))
+        .with_header(header::LastModified(HttpDate::from(finished_time)))
         .with_header(header::ContentType(mime::APPLICATION_JSON))
         .with_header(header::Vary::Items(vec![Ascii::new(
             "Accept-Encoding".to_owned(),
@@ -151,10 +154,9 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
     compress(response, request, serialized)
 }
 
-fn handle_refresh(
-    manifest_loader: &ManifestLoader,
-    index: &RwLock<FTSIndex>,
-) -> Result<(), String> {
+fn handle_refresh(marian: &Marian) -> Result<(), String> {
+    let manifest_loader = &*marian.manifest_loader;
+
     let mut manifests = manifest_loader.load()?;
     let mut new_index = FTSIndex::new(default_fields());
 
@@ -181,12 +183,12 @@ fn handle_refresh(
 
     new_index.finish();
 
-    let mut txn = index.write().unwrap();
+    let mut txn = marian.index.write().unwrap();
     mem::replace(&mut *txn, new_index);
     Ok(())
 }
 
-struct Marian {
+pub struct Marian {
     index: RwLock<FTSIndex>,
     workers: CpuPool,
     manifest_loader: Box<ManifestLoader>,
@@ -200,14 +202,14 @@ impl Marian {
             manifest_loader,
         };
 
-        handle_refresh(&*service.manifest_loader, &service.index)?;
+        handle_refresh(&service)?;
 
         Ok(service)
     }
 }
 
 struct MarianServiceFactory {
-    marian: Arc<Marian>,
+    pub marian: Arc<Marian>,
 }
 
 impl NewService for MarianServiceFactory {
@@ -229,7 +231,8 @@ struct MarianService {
 
 impl MarianService {
     fn status(&self) -> Response {
-        let serialized = serde_json::to_string(&json![{}]).unwrap();
+        let serialized = protocol::create_status_string(&*self.ctx);
+
         Response::new()
             .with_header(header::ContentType(mime::APPLICATION_JSON))
             .with_header(header::Vary::Items(vec![Ascii::new(
@@ -258,14 +261,13 @@ impl Service for MarianService {
                 (&Method::Post, "/refresh") => {
                     let marian = Arc::clone(&self.ctx);
                     return Box::new(self.ctx.workers.spawn_fn(move || {
-                        let response =
-                            match handle_refresh(marian.manifest_loader.as_ref(), &marian.index) {
-                                Ok(_) => Response::new(),
-                                Err(msg) => {
-                                    error!("Error loading manifests: {}", msg);
-                                    Response::new().with_status(StatusCode::InternalServerError)
-                                }
-                            };
+                        let response = match handle_refresh(&marian) {
+                            Ok(_) => Response::new(),
+                            Err(msg) => {
+                                error!("Error loading manifests: {}", msg);
+                                Response::new().with_status(StatusCode::InternalServerError)
+                            }
+                        };
                         Box::new(futures::future::ok(response))
                     }));
                 }
