@@ -83,16 +83,15 @@ describe('integration', function() {
     it('should return 200 to /refresh', async function() {
         this.slow(5000)
         const result = await testUtil.request({
-            method: 'post',
-            host: ctx.host,
-            path: '/refresh'})
+            hostname: 'localhost',
+            port: 3000,
+            path: '/refresh',
+            method: 'POST'})
         assert.strictEqual(result.response.statusCode, 200)
 
         await new Promise((resolve, reject) => {
             const intervalID = setInterval(async () => {
-                const result = await testUtil.request({
-                    host: ctx.host,
-                    path: '/status'})
+                const result = await testUtil.request(`${ctx.host}/status`)
 
                 try {
                     assert.strictEqual(result.response.statusCode, 200)
