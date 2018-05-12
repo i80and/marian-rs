@@ -46,9 +46,22 @@ function startServer(serverPath, manifestPath, done) {
     return ctx
 }
 
-function request(url) {
+function request(url, options) {
+    if (typeof(url) === 'string') {
+        url = new URL(url);
+    }
+
+    const request = {
+        'hostname': url.hostname,
+        'port': parseInt(url.port),
+        'path': url.pathname + url.search,
+        'method': 'GET'
+    }
+
+    Object.assign(request, options)
+
     return new Promise((resolve, reject) => {
-        http.request(url, (res) => {
+        http.request(request, (res) => {
             res.setEncoding('utf8')
             let data = ''
 

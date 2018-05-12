@@ -37,7 +37,7 @@ use brotli2::read::BrotliEncoder;
 use fts::FTSIndex;
 use futures::future::Future;
 use futures_cpupool::CpuPool;
-use hyper::header::{self, HttpDate};
+use hyper::header::{self, HttpDate, IfModifiedSince};
 use hyper::server::{Http, NewService, Request, Response, Service};
 use hyper::{Method, StatusCode};
 use manifest::ManifestLoader;
@@ -46,10 +46,22 @@ use query::Query;
 use queryst::parse_query;
 use std::io::Read;
 use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 use std::{env, mem, process};
 use unicase::Ascii;
 
 const MAXIMUM_QUERY_LENGTH: usize = 100;
+
+fn timespec_from(st: &SystemTime) -> time::Timespec {
+    if let Ok(dur_since_epoch) = st.duration_since(std::time::UNIX_EPOCH) {
+        time::Timespec::new(
+            dur_since_epoch.as_secs() as i64,
+            dur_since_epoch.subsec_nanos() as i32,
+        )
+    } else {
+        time::Timespec::new(0, 0)
+    }
+}
 
 /// Find an acceptable compression format for the client, and return a compressed
 /// version of the content if possible. Otherwise return the original input text.
@@ -115,12 +127,25 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         }
     };
 
+    let txn = marian.index.read().unwrap();
+
+    if let Some(header) = request.headers().get::<IfModifiedSince>() {
+        let if_modified_since = timespec_from(&SystemTime::from(header.0));
+
+        // HTTP dates truncate the milliseconds.
+        let mut last_sync_date = txn.finished.clone();
+        last_sync_date.nsec = 0;
+
+        if if_modified_since >= last_sync_date {
+            return Response::new().with_status(StatusCode::NotModified);
+        }
+    }
+
     let search_properties: Vec<_> = query
         .get("searchProperties")
         .unwrap_or(&"")
         .split(',')
         .collect();
-    let txn = marian.index.read().unwrap();
     let finished_time = std::time::UNIX_EPOCH + std::time::Duration::from_secs(0);
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(finished_time)))

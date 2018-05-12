@@ -27,12 +27,12 @@ describe('integration', function() {
             assert.deepStrictEqual(result.json.manifests.sort(), ['atlas-master', 'bi-connector-master'])
         })
 
-    //     it('should return proper results for a normal query', async () => {
-    //         const result = await testUtil.request(`${ctx.host}/search?q=${encodeURIComponent('"connect dialog" compass')}`)
-    //         assert.strictEqual(result.response.statusCode, 200)
-    //         assert.strictEqual(result.response.headers['content-type'], 'application/json')
-    //         assert.deepStrictEqual(result.json, {'results':[{'title':'Connect via Compass — MongoDB Atlas','preview':'The Connect dialog for a cluster provides the details to connect to a cluster via Compass.','url':'https://docs.atlas.mongodb.com/compass-connection/'},{'title':'Connect via Driver — MongoDB Atlas','preview':'The Connect dialog for a cluster provides the details to connect to a cluster with an application using a MongoDB driver.','url':'https://docs.atlas.mongodb.com/driver-connection/'},{'title':'Connect via mongo Shell — MongoDB Atlas','preview':'The Connect dialog for a cluster provides the details to connect to a cluster via the mongo shell.','url':'https://docs.atlas.mongodb.com/mongo-shell-connection/'},{'title':'Connect to a Cluster — MongoDB Atlas','preview':'Atlas provides instructions on connecting to a cluster via the mongo shell, a MongoDB driver, or MongoDB Compass via the Atlas UI.','url':'https://docs.atlas.mongodb.com/connect-to-cluster/'},{'title':'Set up VPC Peering Connection — MongoDB Atlas','preview':'For Atlas clusters deployed on Google Cloud Platform or Microsoft Azure, add the IP addresses of your GCP or Azure services to Atlas group IP whitelist to grant those services access to the cluster.','url':'https://docs.atlas.mongodb.com/security-vpc-peering/'},{'title':'Connect from Tableau Desktop — MongoDB Connector for BI 2.2','preview':'The MongoDB Connector for BI is a named connector in Tableau.','url':'https://docs.mongodb.com/bi-connector/current/connect/tableau/'},{'title':'Load File with mongoimport — MongoDB Atlas','preview':'You can use mongoimport to import data from a JSON or a CSV file into MongoDB Atlas cluster.','url':'https://docs.atlas.mongodb.com/import/mongoimport/'},{'title':'Migrate with mongomirror — MongoDB Atlas','preview':'mongomirror is a utility for migrating data from an existing MongoDB replica set to a MongoDB Atlas replica set. mongomirror does not require you to shut down your existing replica set or applications.','url':'https://docs.atlas.mongodb.com/import/mongomirror/'},{'title':'MongoDB Atlas — MongoDB Atlas','preview':'MongoDB Atlas is a cloud service for running, monitoring, and maintaining MongoDB deployments, including the provisioning of dedicated servers for the MongoDB instances. In addition, Atlas provides the ability to introspect collections, query backups, and migrate data from existing MongoDB replica set into an Atlas cluster.','url':'https://docs.atlas.mongodb.com/'}],'spellingCorrections':{}})
-    //     })
+        // it('should return proper results for a normal query', async () => {
+        //     const result = await testUtil.request(`${ctx.host}/search?q=${encodeURIComponent('"connect dialog" compass')}`)
+        //     assert.strictEqual(result.response.statusCode, 200)
+        //     assert.strictEqual(result.response.headers['content-type'], 'application/json')
+        //     assert.deepStrictEqual(result.json, {'results':[{'title':'Connect via Compass — MongoDB Atlas','preview':'The Connect dialog for a cluster provides the details to connect to a cluster via Compass.','url':'https://docs.atlas.mongodb.com/compass-connection/'},{'title':'Connect via Driver — MongoDB Atlas','preview':'The Connect dialog for a cluster provides the details to connect to a cluster with an application using a MongoDB driver.','url':'https://docs.atlas.mongodb.com/driver-connection/'},{'title':'Connect via mongo Shell — MongoDB Atlas','preview':'The Connect dialog for a cluster provides the details to connect to a cluster via the mongo shell.','url':'https://docs.atlas.mongodb.com/mongo-shell-connection/'},{'title':'Connect to a Cluster — MongoDB Atlas','preview':'Atlas provides instructions on connecting to a cluster via the mongo shell, a MongoDB driver, or MongoDB Compass via the Atlas UI.','url':'https://docs.atlas.mongodb.com/connect-to-cluster/'},{'title':'Set up VPC Peering Connection — MongoDB Atlas','preview':'For Atlas clusters deployed on Google Cloud Platform or Microsoft Azure, add the IP addresses of your GCP or Azure services to Atlas group IP whitelist to grant those services access to the cluster.','url':'https://docs.atlas.mongodb.com/security-vpc-peering/'},{'title':'Connect from Tableau Desktop — MongoDB Connector for BI 2.2','preview':'The MongoDB Connector for BI is a named connector in Tableau.','url':'https://docs.mongodb.com/bi-connector/current/connect/tableau/'},{'title':'Load File with mongoimport — MongoDB Atlas','preview':'You can use mongoimport to import data from a JSON or a CSV file into MongoDB Atlas cluster.','url':'https://docs.atlas.mongodb.com/import/mongoimport/'},{'title':'Migrate with mongomirror — MongoDB Atlas','preview':'mongomirror is a utility for migrating data from an existing MongoDB replica set to a MongoDB Atlas replica set. mongomirror does not require you to shut down your existing replica set or applications.','url':'https://docs.atlas.mongodb.com/import/mongomirror/'},{'title':'MongoDB Atlas — MongoDB Atlas','preview':'MongoDB Atlas is a cloud service for running, monitoring, and maintaining MongoDB deployments, including the provisioning of dedicated servers for the MongoDB instances. In addition, Atlas provides the ability to introspect collections, query backups, and migrate data from existing MongoDB replica set into an Atlas cluster.','url':'https://docs.atlas.mongodb.com/'}],'spellingCorrections':{}})
+        // })
 
     //     // Test variants of searchProperty
     //     it('should properly handle searchProperty', async () => {
@@ -53,25 +53,21 @@ describe('integration', function() {
     //         assert.deepStrictEqual(result.json, result3.json)
     //     })
 
-    //     it('should return 304 if index hasn\'t changed', async () => {
-    //         const result = await testUtil.request({
-    //             host: ctx.host,
-    //             path: `/search?q=${encodeURIComponent('quary')}`,
-    //             headers: {
-    //                 'If-Modified-Since': new Date().toUTCString()
-    //             }})
-    //         assert.strictEqual(result.response.statusCode, 304)
-    //     })
+        it('should return 304 if index hasn\'t changed', async () => {
+            const result = await testUtil.request(`${ctx.host}/search?q=${encodeURIComponent('quary')}`, {
+                headers: {
+                    'If-Modified-Since': new Date().toUTCString()
+                }})
+            assert.strictEqual(result.response.statusCode, 304)
+        })
 
-    //     it('should NOT return 304 if index has changed', async () => {
-    //         const result = await testUtil.request({
-    //             host: ctx.host,
-    //             path: `/search?q=${encodeURIComponent('quary')}`,
-    //             headers: {
-    //                 'If-Modified-Since': new Date(0).toUTCString()
-    //             }})
-    //         assert.strictEqual(result.response.statusCode, 200)
-    //     })
+        it('should NOT return 304 if index has changed', async () => {
+            const result = await testUtil.request(`${ctx.host}/search?q=${encodeURIComponent('quary')}`, {
+                headers: {
+                    'If-Modified-Since': new Date(0).toUTCString()
+                }})
+            assert.strictEqual(result.response.statusCode, 200)
+        })
     }
 
     it('should print host to stdout', () => {
@@ -82,11 +78,8 @@ describe('integration', function() {
 
     it('should return 200 to /refresh', async function() {
         this.slow(5000)
-        const result = await testUtil.request({
-            hostname: 'localhost',
-            port: 3000,
-            path: '/refresh',
-            method: 'POST'})
+
+        const result = await testUtil.request(`${ctx.host}/refresh`, {method: 'POST'})
         assert.strictEqual(result.response.statusCode, 200)
 
         await new Promise((resolve, reject) => {
