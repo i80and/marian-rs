@@ -60,7 +60,7 @@ impl<'a> Query<'a> {
             terms: HashSet::new(),
             phrases: vec![],
             stemmed_phrases: vec![],
-            search_properties: search_properties,
+            search_properties,
         };
 
         let mut phrase: Option<String> = None;

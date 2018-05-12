@@ -118,9 +118,9 @@ impl ManifestLoader for FileManifestLoader {
             };
 
             manifests.push(Manifest {
-                body: body,
+                body,
                 last_modified: mtime,
-                search_property: search_property,
+                search_property,
             });
         }
 

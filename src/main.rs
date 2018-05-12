@@ -133,7 +133,7 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         let if_modified_since = timespec_from(&SystemTime::from(header.0));
 
         // HTTP dates truncate the milliseconds.
-        let mut last_sync_date = txn.finished.clone();
+        let mut last_sync_date = txn.finished;
         last_sync_date.nsec = 0;
 
         if if_modified_since >= last_sync_date {
