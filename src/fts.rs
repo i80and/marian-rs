@@ -441,7 +441,7 @@ impl FTSIndex {
     }
 
     // word can be multiple tokens. synonym must be a single token.
-    fn correlate_word(&mut self, word: &str, synonym: &str, closeness: f32) {
+    pub fn correlate_word(&mut self, word: &str, synonym: &str, closeness: f32) {
         let parts = tokenize(word, false);
         let word = parts.iter().map(|w| stem(w)).collect::<Vec<_>>().join(" ");
         let synonym = stem(synonym);
