@@ -44,6 +44,7 @@ use manifest::ManifestLoader;
 use percent_encoding::percent_decode;
 use query::Query;
 use queryst::parse_query;
+use std::collections::HashMap;
 use std::io::Read;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
@@ -66,7 +67,7 @@ lazy_static! {
         ("set security", "keyfile", 1.0),
         ("cluster security", "keyfile", 1.0),
         ("x509", "x.509", 1.0),
-        ("auth", "authentication", 0.25)
+        ("auth", "authentication", 0.25),
     ];
 }
 
@@ -179,7 +180,8 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
 
     let parsed_query = Query::new(search_query, &search_properties);
 
-    let results: Vec<serde_json::Value> = txn.search(&parsed_query)
+    let results: Vec<serde_json::Value> = txn
+        .search(&parsed_query)
         .iter()
         .map(|doc| {
             json![{
@@ -190,7 +192,8 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         })
         .collect();
 
-    let results = json![{ "results": results }];
+    let spelling_corrections: HashMap<String, String> = hashmap![];
+    let results = json![{ "results": results, "spellingCorrections": spelling_corrections }];
 
     let serialized = serde_json::to_string(&results).unwrap();
     compress(response, request, serialized)

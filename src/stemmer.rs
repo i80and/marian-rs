@@ -283,7 +283,10 @@ mod tests {
 
     #[test]
     fn test_positional_operator() {
-        assert_eq!(tokenize("$ operator", false), vec!["positional", "operator", "operator"]);
+        assert_eq!(
+            tokenize("$ operator", false),
+            vec!["positional", "operator", "operator"]
+        );
         assert_eq!(tokenize("$max operator", false), vec!["$max", "operator"]);
     }
 }

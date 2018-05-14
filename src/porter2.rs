@@ -1705,7 +1705,9 @@ impl StemmerContext {
     }
 
     fn slice_check(&self) -> bool {
-        if self.bra < 0 || self.bra > self.ket || self.ket > self.limit
+        if self.bra < 0
+            || self.bra > self.ket
+            || self.ket > self.limit
             || self.limit > self.current.len() as i32
         {
             return false;

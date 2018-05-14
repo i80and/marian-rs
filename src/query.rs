@@ -72,7 +72,7 @@ impl<'a> Query<'a> {
                 Some(ref mut s) => if match_str == "\"" {
                     end_phrase = true;
                 } else {
-                    query.add_term(match_str.to_owned());
+                    query.add_term(match_str);
                     s.push_str(match_str);
                     s.push(' ');
                 },
@@ -82,7 +82,7 @@ impl<'a> Query<'a> {
                         continue;
                     }
 
-                    query.add_term(match_str.to_owned());
+                    query.add_term(match_str);
                 }
             }
 
@@ -129,12 +129,10 @@ impl<'a> Query<'a> {
         self.phrases.push(phrase);
     }
 
-    fn add_term(&mut self, term: String) {
-        if is_stop_word(&term) {
-            return;
+    fn add_term(&mut self, term: &str) {
+        for part in tokenize(term, false) {
+            self.terms.insert(part);
         }
-
-        self.terms.insert(term);
     }
 }
 
@@ -184,6 +182,7 @@ mod tests {
             query.terms,
             hashset![
                 "introduce".to_owned(),
+                "the".to_owned(),
                 "officially".to_owned(),
                 "supported".to_owned(),
             ]
