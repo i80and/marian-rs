@@ -141,11 +141,10 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         }
     }
 
-    let search_properties: Vec<_> = query
-        .get("searchProperties")
-        .unwrap_or(&"")
-        .split(',')
-        .collect();
+    let search_properties: Vec<_> = match query.get("searchProperties") {
+        Some(s) => s.split(',').collect(),
+        None => vec![],
+    };
     let finished_time = std::time::UNIX_EPOCH + std::time::Duration::from_secs(0);
     let response = Response::new()
         .with_header(header::LastModified(HttpDate::from(finished_time)))
