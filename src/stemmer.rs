@@ -183,6 +183,12 @@ pub fn tokenize(text: &str, fuzzy: bool) -> Vec<String> {
         }
 
         let token: &str = &components[i];
+        if token == "$" {
+            tokens.push("positional".to_owned());
+            tokens.push("operator".to_owned());
+            continue;
+        }
+
         if let Some(next_token) = components.get(i + 1) {
             let atomic_phrase_option: Option<&str> = ATOMIC_PHRASE_MAP.get(token).cloned();
             if atomic_phrase_option == Some(next_token) {
@@ -273,5 +279,11 @@ mod tests {
             let stemmed = stem(word);
             assert_eq!(stemmed, correct_stemmed);
         }
+    }
+
+    #[test]
+    fn test_positional_operator() {
+        assert_eq!(tokenize("$ operator", false), vec!["positional", "operator", "operator"]);
+        assert_eq!(tokenize("$max operator", false), vec!["$max", "operator"]);
     }
 }
