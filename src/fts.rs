@@ -12,6 +12,24 @@ use trie::Trie;
 const MAX_MATCHES: usize = 150;
 const LOG_4_DIVISOR: f32 = 1.0 / 2.0; // 1.0 / log2(4)
 
+lazy_static! {
+    static ref INITIAL_CORRELATIONS: Vec<(&'static str, &'static str, f32)> = vec![
+        ("regexp", "regex", 0.8),
+        ("regular expression", "regex", 0.8),
+        ("ip", "address", 0.1),
+        ("address", "ip", 0.1),
+        ("join", "lookup", 0.6),
+        ("join", "sql", 0.25),
+        ("aggregation", "sql", 0.1),
+        ("aggregation", "pipeline", 0.1),
+        ("least", "min", 0.6),
+        ("set security", "keyfile", 1.0),
+        ("cluster security", "keyfile", 1.0),
+        ("x509", "x.509", 1.0),
+        ("auth", "authentication", 0.25),
+    ];
+}
+
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct DocID(pub u32);
 
@@ -433,7 +451,7 @@ pub struct FTSIndex {
 
 impl FTSIndex {
     pub fn new(fields: Vec<Field>) -> Self {
-        Self {
+        let mut index = Self {
             fields,
             trie: Trie::new(),
             terms: HashMap::new(),
@@ -454,7 +472,13 @@ impl FTSIndex {
 
             finished: time::Timespec::new(0, 0),
             manifests: HashSet::new(),
+        };
+
+        for (phrase, correlation, strength) in INITIAL_CORRELATIONS.iter() {
+            index.correlate_word(phrase, correlation, *strength);
         }
+
+        index
     }
 
     // word can be multiple tokens. synonym must be a single token.

@@ -53,24 +53,6 @@ use unicase::Ascii;
 
 const MAXIMUM_QUERY_LENGTH: usize = 100;
 
-lazy_static! {
-    static ref INITIAL_CORRELATIONS: Vec<(&'static str, &'static str, f32)> = vec![
-        ("regexp", "regex", 0.8),
-        ("regular expression", "regex", 0.8),
-        ("ip", "address", 0.1),
-        ("address", "ip", 0.1),
-        ("join", "lookup", 0.6),
-        ("join", "sql", 0.25),
-        ("aggregation", "sql", 0.1),
-        ("aggregation", "pipeline", 0.1),
-        ("least", "min", 0.6),
-        ("set security", "keyfile", 1.0),
-        ("cluster security", "keyfile", 1.0),
-        ("x509", "x.509", 1.0),
-        ("auth", "authentication", 0.25),
-    ];
-}
-
 fn timespec_from(st: &SystemTime) -> time::Timespec {
     if let Ok(dur_since_epoch) = st.duration_since(std::time::UNIX_EPOCH) {
         time::Timespec::new(
@@ -241,12 +223,7 @@ pub struct Marian {
 
 impl Marian {
     fn new(manifest_loader: Box<ManifestLoader>) -> Result<Self, String> {
-        let mut index = FTSIndex::new(default_fields());
-
-        for (phrase, correlation, strength) in INITIAL_CORRELATIONS.iter() {
-            index.correlate_word(phrase, correlation, *strength);
-        }
-
+        let index = FTSIndex::new(default_fields());
         let service = Self {
             index: RwLock::new(index),
             workers: CpuPool::new(num_cpus::get()),
