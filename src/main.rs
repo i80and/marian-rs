@@ -142,7 +142,7 @@ fn handle_search(marian: &Marian, request: &Request) -> Response {
         }
     }
 
-    let search_properties: Vec<_> = match query.get("searchProperties") {
+    let search_properties: Vec<_> = match query.get("searchProperty") {
         Some(s) => s.split(',').collect(),
         None => vec![],
     };
