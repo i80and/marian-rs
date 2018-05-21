@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use serde_json;
 use time;
 use Marian;
@@ -12,6 +13,7 @@ struct Status<'a> {
     #[serde(rename = "lastSync")]
     last_sync: Option<LastSync>,
     manifests: Vec<&'a String>,
+    errors: &'a HashMap<String, String>,
 }
 
 pub fn create_status_string(marian: &Marian) -> String {
@@ -29,6 +31,7 @@ pub fn create_status_string(marian: &Marian) -> String {
     let status = Status {
         last_sync,
         manifests: index.manifests.iter().collect(),
+        errors: &index.manifest_errors,
     };
 
     serde_json::to_string(&status).unwrap()

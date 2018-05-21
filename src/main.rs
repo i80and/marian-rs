@@ -13,6 +13,8 @@ extern crate num_cpus;
 extern crate percent_encoding;
 extern crate qp_trie;
 extern crate regex;
+extern crate rusoto_core;
+extern crate rusoto_s3;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -187,7 +189,15 @@ fn handle_refresh(marian: &Marian) -> Result<(), String> {
     let mut manifests = manifest_loader.load()?;
     let mut new_index = FTSIndex::new(default_fields());
 
-    for manifest in &mut manifests {
+    for manifest in manifests.drain(..) {
+        let mut manifest = match manifest {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                new_index.manifest_errors.insert(err.search_property, err.message);
+                continue;
+            },
+        };
+
         while manifest.body.url.ends_with('/') {
             manifest.body.url.pop();
         }
@@ -197,14 +207,13 @@ fn handle_refresh(marian: &Marian) -> Result<(), String> {
         }
 
         let include_in_global_search = manifest.body.include_in_global_search;
-        let search_property = manifest.search_property.to_owned();
 
         for mut doc in manifest.body.documents.drain(..) {
             while doc.slug.ends_with('/') {
                 doc.slug.pop();
             }
             doc.url = format!("{}/{}", manifest.body.url, doc.slug);
-            new_index.add(doc, include_in_global_search, search_property.to_owned());
+            new_index.add(doc, include_in_global_search, manifest.search_property.to_owned());
         }
     }
 

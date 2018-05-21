@@ -447,6 +447,7 @@ pub struct FTSIndex {
 
     pub finished: time::Timespec,
     pub manifests: HashSet<String>,
+    pub manifest_errors: HashMap<String, String>,
 }
 
 impl FTSIndex {
@@ -472,6 +473,7 @@ impl FTSIndex {
 
             finished: time::Timespec::new(0, 0),
             manifests: HashSet::new(),
+            manifest_errors: hashmap![],
         };
 
         for (phrase, correlation, strength) in INITIAL_CORRELATIONS.iter() {
